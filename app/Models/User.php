@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -44,5 +45,51 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function channels(): HasMany
+    {
+        return $this->hasMany(Channel::class);
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    public function activeSubscription()
+    {
+        return $this->subscriptions()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', now());
+            })
+            ->with('plan')
+            ->first();
+    }
+
+    public function getMonthlyPostLimit()
+    {
+        $subscription = $this->activeSubscription();
+        return $subscription ? $subscription->plan->posts_per_month : 0;
+    }
+
+    public function getChannelLimit()
+    {
+        $subscription = $this->activeSubscription();
+        return $subscription ? $subscription->plan->channel_limit : 0;
+    }
+
+    public function canSchedulePosts()
+    {
+        $subscription = $this->activeSubscription();
+        return $subscription && $subscription->plan->scheduling_enabled;
+    }
+
+    public function canViewAnalytics()
+    {
+        $subscription = $this->activeSubscription();
+        return $subscription && $subscription->plan->analytics_enabled;
     }
 }
