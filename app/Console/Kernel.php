@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
         
         // Проверка статуса подписок и установка истекших как expired
         $schedule->command('subscriptions:check-expired')->daily();
+        
+        // Отправка запланированных постов в Telegram
+        $schedule->command('telegram:send-scheduled-posts')->everyMinute();
     }
 
     /**

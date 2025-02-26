@@ -75,6 +75,7 @@ class User extends Authenticatable
         return $subscription ? $subscription->plan->posts_per_month : 0;
     }
 
+
     public function getChannelLimit()
     {
         $subscription = $this->activeSubscription();
@@ -91,5 +92,32 @@ class User extends Authenticatable
     {
         $subscription = $this->activeSubscription();
         return $subscription && $subscription->plan->analytics_enabled;
+    }
+
+    /**
+     * Проверяет, может ли пользователь создать новый пост
+     *
+     * @param int $channelId ID канала, для которого создается пост
+     * @return bool
+     */
+    public function canCreatePost($channelId = null)
+    {
+        // Получаем активную подписку пользователя
+        $subscription = $this->activeSubscription();
+        if (!$subscription) {
+            return false;
+        }
+        
+        // Получаем начало текущего месяца
+        $monthStart = now()->startOfMonth();
+        
+        // Получаем количество постов, созданных в текущем месяце
+        $channelIds = $channelId ? [$channelId] : $this->channels->pluck('id')->toArray();
+        $currentPostsCount = \App\Models\Post::whereIn('channel_id', $channelIds)
+            ->where('created_at', '>=', $monthStart)
+            ->count();
+        
+        // Проверяем, не превышен ли лимит постов
+        return $currentPostsCount < $subscription->plan->posts_per_month;
     }
 }

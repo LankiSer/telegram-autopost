@@ -82,4 +82,89 @@ class AdminController extends Controller
         
         return view('admin.logs', compact('logFiles'));
     }
+
+    /**
+     * Обновление пользователя
+     */
+    public function updateUser(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+        ]);
+        
+        $user->update($validated);
+        
+        return redirect()->route('admin.users')->with('success', 'Пользователь успешно обновлен!');
+    }
+
+    /**
+     * Удаление пользователя
+     */
+    public function destroyUser($id)
+    {
+        $user = User::findOrFail($id);
+        $user->delete();
+        
+        return redirect()->route('admin.users')->with('success', 'Пользователь успешно удален!');
+    }
+
+    /**
+     * Обновление канала
+     */
+    public function updateChannel(Request $request, $id)
+    {
+        $channel = Channel::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+        ]);
+        
+        $channel->update($validated);
+        
+        return redirect()->route('admin.channels')->with('success', 'Канал успешно обновлен!');
+    }
+
+    /**
+     * Удаление канала
+     */
+    public function destroyChannel($id)
+    {
+        $channel = Channel::findOrFail($id);
+        $channel->delete();
+        
+        return redirect()->route('admin.channels')->with('success', 'Канал успешно удален!');
+    }
+
+    /**
+     * Обновление поста
+     */
+    public function updatePost(Request $request, $id)
+    {
+        $post = Post::findOrFail($id);
+        
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'status' => 'required|in:draft,scheduled,published,failed',
+        ]);
+        
+        $post->update($validated);
+        
+        return redirect()->route('admin.posts')->with('success', 'Пост успешно обновлен!');
+    }
+
+    /**
+     * Удаление поста
+     */
+    public function destroyPost($id)
+    {
+        $post = Post::findOrFail($id);
+        $post->delete();
+        
+        return redirect()->route('admin.posts')->with('success', 'Пост успешно удален!');
+    }
 } 
