@@ -8,7 +8,10 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPlanController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\SettingsController;
+<<<<<<< HEAD
 use App\Http\Controllers\StatisticsController;
+=======
+>>>>>>> 41ba59d9358b26e1195d37d74b2eab6f3e981777
 
 // Главная страница
 Route::get('/', function () {
@@ -94,6 +97,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/channels/{channel}/connect-bot', [App\Http\Controllers\ChannelController::class, 'connectBot'])
         ->middleware(['auth'])
         ->name('channels.connect-bot');
+<<<<<<< HEAD
 
     // Добавляем маршруты для статистики
     Route::get('/statistics', [StatisticsController::class, 'userStats'])
@@ -102,6 +106,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/statistics', [StatisticsController::class, 'adminStats'])
         ->middleware('admin')
         ->name('admin.statistics');
+=======
+>>>>>>> 41ba59d9358b26e1195d37d74b2eab6f3e981777
 });
 
 // Маршруты администратора

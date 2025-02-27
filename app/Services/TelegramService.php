@@ -194,7 +194,11 @@ class TelegramService
                 'text' => $text,
                 'parse_mode' => 'HTML'
             ]);
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 41ba59d9358b26e1195d37d74b2eab6f3e981777
             return [
                 'success' => $response->successful(),
                 'data' => $response->json(),
