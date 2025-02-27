@@ -311,38 +311,72 @@
                         @push('scripts')
                         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                         <script>
-                            // Данные для графика (в реальном приложении должны приходить с бекенда)
-                            const postsStatsCtx = document.getElementById('postsStatsChart').getContext('2d');
-                            const postsChart = new Chart(postsStatsCtx, {
-                                type: 'pie',
-                                data: {
-                                    labels: ['Опубликовано', 'Запланировано', 'Черновики', 'Ошибки'],
-                                    datasets: [{
-                                        data: [
-                                            // Здесь должны быть реальные данные
-                                            {{ App\Models\Post::whereIn('channel_id', auth()->user()->channels->pluck('id'))->where('status', 'published')->count() }},
-                                            {{ App\Models\Post::whereIn('channel_id', auth()->user()->channels->pluck('id'))->where('status', 'scheduled')->count() }},
-                                            {{ App\Models\Post::whereIn('channel_id', auth()->user()->channels->pluck('id'))->where('status', 'draft')->count() }},
-                                            {{ App\Models\Post::whereIn('channel_id', auth()->user()->channels->pluck('id'))->where('status', 'failed')->count() }}
-                                        ],
-                                        backgroundColor: [
-                                            'rgba(16, 185, 129, 0.7)',
-                                            'rgba(245, 158, 11, 0.7)',
-                                            'rgba(107, 114, 128, 0.7)',
-                                            'rgba(239, 68, 68, 0.7)'
-                                        ],
-                                        borderWidth: 1
-                                    }]
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    plugins: {
-                                        legend: {
-                                            position: 'bottom'
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const postsStatsCtx = document.getElementById('postsStatsChart').getContext('2d');
+                                new Chart(postsStatsCtx, {
+                                    type: 'pie',
+                                    data: {
+                                        labels: ['Опубликовано', 'Запланировано', 'Черновики', 'Ошибки'],
+                                        datasets: [{
+                                            data: [
+                                                {{ $postsStatusData['published'] }},
+                                                {{ $postsStatusData['scheduled'] }},
+                                                {{ $postsStatusData['draft'] }},
+                                                {{ $postsStatusData['failed'] }}
+                                            ],
+                                            backgroundColor: [
+                                                'rgba(16, 185, 129, 0.7)',  // Зеленый
+                                                'rgba(245, 158, 11, 0.7)',  // Желтый
+                                                'rgba(107, 114, 128, 0.7)', // Серый
+                                                'rgba(239, 68, 68, 0.7)'    // Красный
+                                            ],
+                                            borderWidth: 1
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: {
+                                                position: 'bottom'
+                                            }
                                         }
                                     }
-                                }
+                                });
+
+                                // График активности
+                                const activityCtx = document.getElementById('activityChart').getContext('2d');
+                                new Chart(activityCtx, {
+                                    type: 'line',
+                                    data: {
+                                        labels: {!! json_encode($activityData->pluck('date')) !!},
+                                        datasets: [{
+                                            label: 'Количество постов',
+                                            data: {!! json_encode($activityData->pluck('count')) !!},
+                                            borderColor: 'rgb(59, 130, 246)',
+                                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                            tension: 0.4,
+                                            fill: true
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: {
+                                                position: 'bottom'
+                                            }
+                                        },
+                                        scales: {
+                                            y: {
+                                                beginAtZero: true,
+                                                ticks: {
+                                                    stepSize: 1
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
                             });
                         </script>
                         @endpush
@@ -367,4 +401,34 @@
             </div>
         </div>
     </div>
+
+    @if(isset($activity_data))
+        <script>
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: {!! json_encode($activity_data->pluck('date')) !!},
+                    datasets: [{
+                        label: 'Публикации',
+                        data: {!! json_encode($activity_data->pluck('count')) !!},
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        </script>
+    @endif
 </x-app-layout> 

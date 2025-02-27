@@ -50,6 +50,17 @@
                             {{ __('Тарифы') }}
                         </x-nav-link>
                     @endif
+                    
+                    <!-- Навигация для админа -->
+                    @if(auth()->user()->email === 'admin@admin.com')
+                        <x-nav-link :href="route('statistics')" :active="request()->routeIs('statistics')">
+                            {{ __('Статистика') }}
+                        </x-nav-link>
+                    @else
+                        <x-nav-link :href="route('statistics')" :active="request()->routeIs('statistics')">
+                            {{ __('Статистика') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -80,6 +91,10 @@
                             
                             <x-dropdown-link :href="route('admin.logs')">
                                 {{ __('Системные логи') }}
+                            </x-dropdown-link>
+                            
+                            <x-dropdown-link :href="route('admin.statistics')" :active="request()->routeIs('admin.statistics')">
+                                {{ __('Админ статистика') }}
                             </x-dropdown-link>
                         @endif
 
@@ -149,6 +164,17 @@
                     {{ __('Тарифы') }}
                 </x-responsive-nav-link>
             @endif
+            
+            <!-- В выпадающем меню -->
+            @if(auth()->user()->email === 'admin@admin.com')
+                <x-responsive-nav-link :href="route('admin.statistics')" :active="request()->routeIs('admin.statistics')">
+                    {{ __('Статистика') }}
+                </x-responsive-nav-link>
+            @else
+                <x-responsive-nav-link :href="route('statistics')" :active="request()->routeIs('statistics')">
+                    {{ __('Статистика') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Настройки в мобильном меню -->
@@ -170,6 +196,10 @@
                     
                     <x-responsive-nav-link :href="route('admin.logs')">
                         {{ __('Системные логи') }}
+                    </x-responsive-nav-link>
+                    
+                    <x-responsive-nav-link :href="route('admin.statistics')" :active="request()->routeIs('admin.statistics')">
+                        {{ __('Админ статистика') }}
                     </x-responsive-nav-link>
                 @endif
 

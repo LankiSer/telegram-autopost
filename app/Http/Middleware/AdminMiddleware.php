@@ -17,12 +17,10 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Проверяем, является ли пользователь администратором
-        if ($request->user() && $request->user()->email === 'admin@admin.com') {
-            return $next($request);
+        if (auth()->user()->email !== 'admin@admin.com') {
+            abort(403);
         }
 
-        // Если не админ, перенаправляем на дашборд
-        return redirect()->route('dashboard');
+        return $next($request);
     }
 } 
