@@ -27,14 +27,17 @@ composer install
 
 
 cp .env.example .env
+
 Запустите миграции:
 
 
 php artisan migrate
+
 Запустите сервер:
 
 
 php artisan serve
+
 Использование
 Авторизация:
 
