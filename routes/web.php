@@ -8,10 +8,9 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPlanController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\SettingsController;
-<<<<<<< HEAD
+
 use App\Http\Controllers\StatisticsController;
-=======
->>>>>>> 41ba59d9358b26e1195d37d74b2eab6f3e981777
+
 
 // Главная страница
 Route::get('/', function () {
@@ -28,20 +27,20 @@ Route::middleware('auth')->group(function () {
 
         $user = auth()->user();
         $channels = $user->channels;
-        
+
         // Подготавливаем данные для дашборда
         $channels_count = $channels->count();
         $posts_count = \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))->count();
         $scheduled_posts = \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))
             ->where('status', 'scheduled')
             ->count();
-        
+
         // Вычисляем процент успешных публикаций
         $published_posts = \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))
             ->where('status', 'published')
             ->count();
         $success_rate = $posts_count > 0 ? round(($published_posts / $posts_count) * 100) : 0;
-        
+
         // Получаем данные активности за последнюю неделю
         $activityData = \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))
             ->where('created_at', '>=', now()->subWeek())
@@ -49,14 +48,14 @@ Route::middleware('auth')->group(function () {
             ->groupBy('date')
             ->orderBy('date')
             ->get();
-        
+
         // Получаем последние посты
         $recent_posts = \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))
             ->with('channel')
             ->latest()
             ->limit(5)
             ->get();
-        
+
         // Получаем статистику по статусам постов
         $postsStatusData = [
             'published' => \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))->where('status', 'published')->count(),
@@ -64,7 +63,7 @@ Route::middleware('auth')->group(function () {
             'draft' => \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))->where('status', 'draft')->count(),
             'failed' => \App\Models\Post::whereIn('channel_id', $channels->pluck('id'))->where('status', 'failed')->count()
         ];
-        
+
         return view('dashboard.user', compact(
             'channels_count',
             'posts_count',
@@ -97,7 +96,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/channels/{channel}/connect-bot', [App\Http\Controllers\ChannelController::class, 'connectBot'])
         ->middleware(['auth'])
         ->name('channels.connect-bot');
-<<<<<<< HEAD
+
 
     // Добавляем маршруты для статистики
     Route::get('/statistics', [StatisticsController::class, 'userStats'])
@@ -106,8 +105,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/admin/statistics', [StatisticsController::class, 'adminStats'])
         ->middleware('admin')
         ->name('admin.statistics');
-=======
->>>>>>> 41ba59d9358b26e1195d37d74b2eab6f3e981777
+
+
 });
 
 // Маршруты администратора
@@ -125,27 +124,27 @@ Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])
                 $query->whereNull('ends_at')
                     ->orWhere('ends_at', '>', now());
             })->count();
-        
+
         // Данные о регистрациях
         $registrations_data = \App\Models\User::where('created_at', '>=', now()->subMonth())
             ->select(\Illuminate\Support\Facades\DB::raw('DATE(created_at) as date'), \Illuminate\Support\Facades\DB::raw('count(*) as count'))
             ->groupBy('date')
             ->orderBy('date')
             ->get();
-        
+
         // Данные о публикациях
         $posts_data = \App\Models\Post::where('created_at', '>=', now()->subMonth())
             ->select(\Illuminate\Support\Facades\DB::raw('DATE(created_at) as date'), \Illuminate\Support\Facades\DB::raw('count(*) as count'))
             ->groupBy('date')
             ->orderBy('date')
             ->get();
-        
+
         // Последние действия
         $recent_activities = \App\Models\Activity::with('user')
             ->latest()
             ->limit(10)
             ->get();
-        
+
         return view('dashboard.admin', compact(
             'users_count',
             'channels_count',
@@ -156,14 +155,14 @@ Route::middleware(['auth', \App\Http\Middleware\AdminMiddleware::class])
             'recent_activities'
         ));
     })->name('dashboard');
-    
+
     Route::get('/users', [AdminController::class, 'users'])->name('users');
     Route::get('/channels', [AdminController::class, 'channels'])->name('channels');
     Route::get('/posts', [AdminController::class, 'posts'])->name('posts');
     Route::get('/subscriptions', [AdminController::class, 'subscriptions'])->name('subscriptions');
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
     Route::get('/logs', [AdminController::class, 'logs'])->name('logs');
-    
+
     // CRUD для планов подписки
     Route::resource('plans', AdminPlanController::class);
 
@@ -188,12 +187,12 @@ Route::middleware(['auth'])->prefix('telegram')->name('telegram.')->group(functi
     Route::get('/channels', [App\Http\Controllers\TelegramController::class, 'index'])->name('channels.index');
     Route::get('/channels/create', [App\Http\Controllers\TelegramController::class, 'create'])->name('channels.create');
     Route::post('/channels', [App\Http\Controllers\TelegramController::class, 'store'])->name('channels.store');
-    
+
     // Посты
     Route::get('/channels/{channel}/posts', [App\Http\Controllers\TelegramController::class, 'posts'])->name('posts');
     Route::get('/channels/{channel}/posts/create', [App\Http\Controllers\TelegramController::class, 'createPost'])->name('posts.create');
     Route::post('/channels/{channel}/posts', [App\Http\Controllers\TelegramController::class, 'storePost'])->name('posts.store');
-    
+
     // Статистика
     Route::get('/statistics', [App\Http\Controllers\TelegramController::class, 'statistics'])->name('statistics');
 });
@@ -205,7 +204,7 @@ require __DIR__.'/auth.php';
 // Должен быть последним, чтобы не перехватывать другие маршруты
 Route::get('/{page}', function ($page) {
     // Исключаем определенные пути
-    $excludedPaths = ['profile', 'dashboard', 'login', 'register', 'password', 'verify-email', 
+    $excludedPaths = ['profile', 'dashboard', 'login', 'register', 'password', 'verify-email',
         'channels', 'posts', 'subscriptions'];
     if (in_array($page, $excludedPaths)) {
         abort(404);
@@ -214,7 +213,7 @@ Route::get('/{page}', function ($page) {
     if (view()->exists("pages.{$page}")) {
         return view("pages.{$page}");
     }
-    
+
     abort(404);
 })->where('page', '[a-zA-Z0-9\-\/]+');
 
@@ -240,7 +239,7 @@ Route::get('/update-all-channels-status', function () {
     $channels = \App\Models\Channel::where('user_id', auth()->id())
         ->where('type', 'telegram')
         ->get();
-    
+
     $updated = 0;
     foreach ($channels as $channel) {
         if ($channel->telegram_username) {
@@ -249,7 +248,7 @@ Route::get('/update-all-channels-status', function () {
             $updated++;
         }
     }
-    
+
     return redirect()->route('channels.index')
         ->with('success', "Статус обновлен для {$updated} каналов");
 })->middleware(['auth'])->name('channels.update-all-status');
@@ -260,56 +259,56 @@ Route::post('/api/test-telegram-message/{channel}', function (\App\Models\Channe
     if (!auth()->check() || $channel->user_id !== auth()->id()) {
         return response()->json(['success' => false, 'error' => 'Нет доступа к каналу'], 403);
     }
-    
+
     // Логируем информацию о канале
     \Illuminate\Support\Facades\Log::info('Тестовое сообщение: Информация о канале', [
-        'id' => $channel->id, 
+        'id' => $channel->id,
         'username' => $channel->telegram_username,
         'telegram_channel_id' => $channel->telegram_channel_id,
         'telegram_chat_id' => $channel->telegram_chat_id,
         'bot_added' => $channel->bot_added
     ]);
-    
+
     try {
         // Если ID канала неизвестен, пробуем получить его
         if (!$channel->telegram_channel_id) {
             // Пытаемся получить ID канала
             $botResult = $telegram->checkBotAccess($channel->telegram_username);
-            
+
             if (isset($botResult['success']) && $botResult['success'] && isset($botResult['chat_id'])) {
                 $channel->telegram_channel_id = $botResult['chat_id'];
                 $channel->telegram_chat_id = $botResult['chat_id'];
                 $channel->save();
-                
+
                 \Illuminate\Support\Facades\Log::info('Тестовое сообщение: ID канала обновлен', [
                     'chat_id' => $botResult['chat_id']
                 ]);
             } else {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'error' => 'Невозможно определить ID канала. Пожалуйста, введите ID канала вручную.',
                     'bot_result' => $botResult
                 ]);
             }
         }
-        
+
         // Отправляем тестовое сообщение
         $response = $telegram->sendMessage(
             $channel->telegram_channel_id,
             "🔍 *Тестовое сообщение*\n\nЕсли вы видите это сообщение, значит бот успешно подключен к каналу.\n\nДата: " . now()->format('d.m.Y H:i:s'),
             null // без медиа
         );
-        
+
         \Illuminate\Support\Facades\Log::info('Тестовое сообщение: Результат отправки', $response);
-        
+
         if (isset($response['success']) && $response['success']) {
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'message' => 'Тестовое сообщение успешно отправлено'
             ]);
         } else {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'error' => $response['error'] ?? 'Неизвестная ошибка',
                 'response' => $response
             ]);
@@ -319,9 +318,9 @@ Route::post('/api/test-telegram-message/{channel}', function (\App\Models\Channe
             'message' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ]);
-        
+
         return response()->json([
-            'success' => false, 
+            'success' => false,
             'error' => $e->getMessage()
         ]);
     }
