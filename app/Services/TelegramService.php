@@ -20,7 +20,7 @@ class TelegramService
 
     /**
      * Отправляет сообщение с медиа-файлами в Telegram
-     * 
+     *
      * @param string $chatId ID чата или канала
      * @param string $text Текст сообщения
      * @param array|null $media Массив путей к медиа-файлам
@@ -51,20 +51,20 @@ class TelegramService
                 Log::info('TelegramService: Подготовка к отправке медиа', [
                     'media_paths' => $media
                 ]);
-                
+
                 if (count($media) == 1) {
                     // Отправляем одно фото с текстом
                     $mediaPath = $media[0];
-                    
+
                     // Проверка и нормализация пути к файлу
                     if (strpos($mediaPath, 'public/') === 0) {
                         // Если путь начинается с 'public/', удаляем префикс для Storage::disk('public')
                         $normalizedPath = str_replace('public/', '', $mediaPath);
                         Log::info('TelegramService: Нормализованный путь к медиа', [
-                            'original' => $mediaPath, 
+                            'original' => $mediaPath,
                             'normalized' => $normalizedPath
                         ]);
-                        
+
                         if (Storage::disk('public')->exists($normalizedPath)) {
                             $fullPath = Storage::disk('public')->path($normalizedPath);
                             // Далее используем $fullPath
@@ -83,7 +83,7 @@ class TelegramService
                             } else {
                                 Log::error("TelegramService: Storage file not found: {$mediaPath}");
                                 Log::error("Пробуем поискать в доступных путях...");
-                                
+
                                 // Проверяем разные варианты путей для отладки
                                 $testPaths = [
                                     $mediaPath,
@@ -91,25 +91,25 @@ class TelegramService
                                     'media/' . basename($mediaPath),
                                     'public/media/' . basename($mediaPath)
                                 ];
-                                
+
                                 foreach ($testPaths as $testPath) {
-                                    Log::info("Проверка пути: {$testPath} - " . 
+                                    Log::info("Проверка пути: {$testPath} - " .
                                               (Storage::exists($testPath) ? "НАЙДЕН" : "НЕ НАЙДЕН"));
                                 }
-                                
+
                                 throw new \Exception("Media file not found in any storage location: {$mediaPath}");
                             }
                         }
                     }
-                    
+
                     // Проверяем, что файл существует и доступен на диске
                     if (!file_exists($fullPath)) {
                         Log::error("TelegramService: Файл не найден по полному пути: {$fullPath}");
                         throw new \Exception("Media file not found at path: {$mediaPath}");
                     }
-                    
+
                     Log::info("TelegramService: Отправка медиа-файла: {$fullPath}");
-                    
+
                     // Отключаем проверку SSL-сертификата для разработки
                     $response = Http::withoutVerifying()
                         ->attach('photo', file_get_contents($fullPath), basename($fullPath))
@@ -118,7 +118,7 @@ class TelegramService
                             'caption' => $text,
                             'parse_mode' => 'HTML'
                         ]);
-                    
+
                     return [
                         'success' => $response->successful(),
                         'data' => $response->json(),
@@ -127,23 +127,23 @@ class TelegramService
                 } else {
                     // Отправляем медиа-группу
                     $mediaItems = [];
-                    
+
                     // Подготавливаем массив медиа-файлов
                     foreach ($media as $index => $mediaPath) {
                         // Проверяем, существует ли файл
                         if (Storage::exists($mediaPath)) {
                             $fullPath = Storage::path($mediaPath);
-                            
+
                             // Проверяем, что файл существует и доступен
                             if (!file_exists($fullPath)) {
                                 Log::error("TelegramService: File not found at path: {$fullPath}");
                                 continue; // Пропускаем этот файл
                             }
-                            
+
                             // Определяем тип медиа по расширению
                             $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
                             $type = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']) ? 'photo' : 'document';
-                            
+
                             // Для первого элемента добавляем подпись
                             if ($index === 0) {
                                 $mediaItems[] = [
@@ -158,27 +158,27 @@ class TelegramService
                                     'media' => 'attach://' . basename($fullPath)
                                 ];
                             }
-                            
+
                             // Сохраняем путь для последующего прикрепления
                             $attachments[basename($fullPath)] = file_get_contents($fullPath);
                         }
                     }
-                    
+
                     // Если есть хотя бы один файл для отправки
                     if (count($mediaItems) > 0) {
                         $mediaRequest = Http::withoutVerifying();
-                        
+
                         // Прикрепляем все файлы к запросу
                         foreach ($attachments as $name => $content) {
                             $mediaRequest->attach($name, $content);
                         }
-                        
+
                         // Отправляем медиа-группу
                         $response = $mediaRequest->post("{$this->apiUrl}{$this->token}/sendMediaGroup", [
                             'chat_id' => $chatId,
                             'media' => json_encode($mediaItems)
                         ]);
-                        
+
                         return [
                             'success' => $response->successful(),
                             'data' => $response->json(),
@@ -187,18 +187,14 @@ class TelegramService
                     }
                 }
             }
-            
+
             // Если нет медиа или они не были обработаны, отправляем просто текст
             $response = Http::withoutVerifying()->post("{$this->apiUrl}{$this->token}/sendMessage", [
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => 'HTML'
             ]);
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 41ba59d9358b26e1195d37d74b2eab6f3e981777
             return [
                 'success' => $response->successful(),
                 'data' => $response->json(),
@@ -211,7 +207,7 @@ class TelegramService
                 'chat_id' => $chatId,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             // Пытаемся отправить сообщение без медиа, если была ошибка с файлами
             try {
                 $response = Http::withoutVerifying()->post("{$this->apiUrl}{$this->token}/sendMessage", [
@@ -219,7 +215,7 @@ class TelegramService
                     'text' => $text . "\n\n⚠️ *Примечание:* Не удалось отправить прикрепленные медиа-файлы из-за ошибки.",
                     'parse_mode' => 'MarkdownV2'
                 ]);
-                
+
                 return [
                     'success' => true,
                     'data' => $response->json(),
@@ -228,7 +224,7 @@ class TelegramService
                 ];
             } catch (\Exception $innerException) {
                 Log::error('TelegramService fallback error: ' . $innerException->getMessage());
-                
+
                 return [
                     'success' => false,
                     'error' => $e->getMessage() . ' -> Fallback also failed: ' . $innerException->getMessage()
@@ -240,12 +236,12 @@ class TelegramService
     private function getMediaType($filePath)
     {
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        
+
         $photoExtensions = ['jpg', 'jpeg', 'png', 'webp'];
         $videoExtensions = ['mp4', 'avi', 'mov', 'mkv'];
         $audioExtensions = ['mp3', 'ogg', 'wav'];
         $documentExtensions = ['pdf', 'doc', 'docx', 'zip', 'rar'];
-        
+
         if (in_array($extension, $photoExtensions)) {
             return 'photo';
         } elseif (in_array($extension, $videoExtensions)) {
@@ -255,11 +251,11 @@ class TelegramService
         } elseif (in_array($extension, $documentExtensions)) {
             return 'document';
         }
-        
+
         // По умолчанию считаем файл документом
         return 'document';
     }
-    
+
     /**
      * Проверяет доступ бота к указанному каналу
      */
@@ -282,10 +278,10 @@ class TelegramService
                 'code' => 'no_username'
             ];
         }
-        
+
         // Нормализуем имя пользователя (удаляем @ если есть)
         $username = ltrim($username, '@');
-        
+
         try {
             // Используем функционал для игнорирования ошибок SSL
             $chatResponse = Http::withoutVerifying()
@@ -294,10 +290,10 @@ class TelegramService
                 ->get("https://api.telegram.org/bot{$this->token}/getChat", [
                     'chat_id' => '@' . $username
                 ]);
-            
+
             // Проверяем содержимое ответа независимо от статуса HTTP
             $chatData = $chatResponse->json();
-            
+
             // Если API вернул данные с ok=true, считаем запрос успешным
             if (isset($chatData['ok']) && $chatData['ok'] === true) {
                 $chatId = $chatData['result']['id'];
@@ -309,13 +305,13 @@ class TelegramService
                 // API вернул ok=false
                 $errorCode = $chatData['error_code'] ?? 400;
                 $errorDescription = $chatData['description'] ?? 'Unknown error';
-                
+
                 Log::error('Failed to get chat info', [
                     'username' => $username,
                     'error_code' => $errorCode,
                     'description' => $errorDescription
                 ]);
-                
+
                 return [
                     'success' => false,
                     'error' => "Failed to get chat info: {$errorDescription}",
@@ -323,7 +319,7 @@ class TelegramService
                     'step' => 'getChat'
                 ];
             }
-            
+
             // Проверяем, является ли бот администратором
             $adminResponse = Http::withoutVerifying()
                 ->timeout(10)
@@ -331,20 +327,20 @@ class TelegramService
                 ->get("https://api.telegram.org/bot{$this->token}/getChatAdministrators", [
                     'chat_id' => '@' . $username
                 ]);
-            
+
             // Аналогично, проверяем содержимое ответа
             $adminData = $adminResponse->json();
-            
+
             if (!isset($adminData['ok']) || $adminData['ok'] !== true) {
                 $errorCode = $adminData['error_code'] ?? 400;
                 $errorDescription = $adminData['description'] ?? 'Unknown error';
-                
+
                 Log::error('Failed to get administrators', [
                     'username' => $username,
                     'error_code' => $errorCode,
                     'description' => $errorDescription
                 ]);
-                
+
                 return [
                     'success' => false,
                     'error' => "Failed to get administrators: {$errorDescription}",
@@ -352,24 +348,24 @@ class TelegramService
                     'step' => 'getChatAdministrators'
                 ];
             }
-            
+
             // Получаем информацию о боте
             $botInfo = Http::withoutVerifying()
                 ->timeout(10)
                 ->retry(3, 100)
                 ->get("https://api.telegram.org/bot{$this->token}/getMe");
-            
+
             $botData = $botInfo->json();
-            
+
             if (!isset($botData['ok']) || $botData['ok'] !== true) {
                 $errorCode = $botData['error_code'] ?? 400;
                 $errorDescription = $botData['description'] ?? 'Unknown error';
-                
+
                 Log::error('Failed to get bot info', [
                     'response' => $botData,
                     'error_code' => $errorCode
                 ]);
-                
+
                 return [
                     'success' => false,
                     'error' => "Failed to get bot info: {$errorDescription}",
@@ -377,21 +373,21 @@ class TelegramService
                     'step' => 'getMe'
                 ];
             }
-            
+
             $botId = $botData['result']['id'];
             $botUsername = $botData['result']['username'];
             Log::info('Bot ID: ' . $botId . ', Bot username: @' . $botUsername);
-            
+
             $admins = $adminData['result'];
             $adminUsernames = [];
             foreach ($admins as $admin) {
                 if (isset($admin['user']['username'])) {
-                    $adminUsernames[] = $admin['user']['username']; 
+                    $adminUsernames[] = $admin['user']['username'];
                 }
             }
-            
+
             Log::info('Channel admins: ' . implode(', ', $adminUsernames));
-            
+
             $isBotAdmin = false;
             foreach ($admins as $admin) {
                 if ($admin['user']['id'] == $botId) {
@@ -399,7 +395,7 @@ class TelegramService
                     break;
                 }
             }
-            
+
             if ($isBotAdmin) {
                 Log::info('Bot is admin for @' . $username);
                 return [
@@ -420,18 +416,18 @@ class TelegramService
                     'channel_admins' => $adminUsernames
                 ];
             }
-            
+
         } catch (\Exception $e) {
             Log::error('Exception in checkBotAccess: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'username' => $username,
                 'error_class' => get_class($e)
             ]);
-            
+
             // Специальная обработка ошибок SSL
             if (strpos($e->getMessage(), 'SSL certificate problem') !== false) {
                 Log::warning('SSL certificate error detected, trying to extract response data if available');
-                
+
                 // Попытка получить и использовать данные, несмотря на ошибку SSL
                 try {
                     // Проверим, можем ли мы получить канал напрямую без проверки SSL
@@ -439,10 +435,10 @@ class TelegramService
                         ->get("https://api.telegram.org/bot{$this->token}/getChat", [
                             'chat_id' => '@' . $username
                         ]);
-                    
+
                     if ($chatResponse->successful() && $chatResponse->json('ok')) {
                         $chatId = $chatResponse->json('result.id');
-                        
+
                         return [
                             'success' => true,
                             'chat_id' => $chatId,
@@ -456,7 +452,7 @@ class TelegramService
                     Log::error('Secondary exception trying to bypass SSL error: ' . $innerEx->getMessage());
                 }
             }
-            
+
             return [
                 'success' => false,
                 'error' => 'Exception: ' . $e->getMessage(),
@@ -486,20 +482,20 @@ class TelegramService
         $response = Http::get($this->apiUrl . $this->token . '/getMe');
         return $response->json()['result']['id'];
     }
-    
+
     public function getChannelInfo($channelId)
     {
         $response = Http::get($this->apiUrl . $this->token . '/getChat', [
             'chat_id' => $channelId
         ]);
-        
+
         if ($response->successful()) {
             return $response->json()['result'];
         }
-        
+
         return null;
     }
-    
+
     public function setWebhook($url)
     {
         return Http::post($this->apiUrl . $this->token . '/setWebhook', [
@@ -507,7 +503,7 @@ class TelegramService
             'allowed_updates' => ['message', 'channel_post', 'callback_query']
         ]);
     }
-    
+
     public function deleteWebhook()
     {
         return Http::post($this->apiUrl . $this->token . '/deleteWebhook');
@@ -521,7 +517,7 @@ class TelegramService
                 ->get($this->apiUrl . $this->token . '/getChatMemberCount', [
                     'chat_id' => $channelId
                 ]);
-            
+
             $subscribers = 0;
             if ($subscribersResponse->successful()) {
                 $subscribers = $subscribersResponse->json()['result'] ?? 0;
@@ -536,13 +532,13 @@ class TelegramService
 
             $totalViews = 0;
             $messageStats = [];
-            
+
             if ($messagesResponse->successful()) {
                 $messages = $messagesResponse->json()['result'] ?? [];
                 foreach ($messages as $message) {
                     if (isset($message['views'])) {
                         $totalViews += $message['views'];
-                        
+
                         // Собираем статистику по часам
                         $date = Carbon::createFromTimestamp($message['date']);
                         $hour = $date->format('H');
@@ -591,4 +587,4 @@ class TelegramService
             ];
         }
     }
-} 
+}
