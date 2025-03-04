@@ -1,4 +1,4 @@
-# TeleNova
+# TeleNova version: v0.1.1 PreAlpha
 
 ![TeleNova Logo](link-to-your-logo.png)
 
