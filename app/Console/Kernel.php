@@ -4,22 +4,45 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Facades\Date;
 
 class Kernel extends ConsoleKernel
 {
+    /**
+     * The Artisan commands provided by your application.
+     *
+     * @var array
+     */
+    protected $commands = [
+        Commands\AutoPostingCommand::class,
+    ];
+
     /**
      * Define the application's command schedule.
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Процесс запланированных постов каждую минуту
-        $schedule->command('posts:process')->everyMinute();
+        // Установка часового пояса для планировщика
+        Date::setTestNow(now()->setTimezone(config('app.timezone')));
         
-        // Проверка статуса подписок и установка истекших как expired
-        $schedule->command('subscriptions:check-expired')->daily();
+        // Тестовая задача
+        $schedule->call(function () {
+            $now = now();
+            $message = "Scheduler test at: " . $now->format('Y-m-d H:i:s');
+            
+            info($message);
+            file_put_contents(
+                storage_path('logs/scheduler-test.log'),
+                $message . PHP_EOL,
+                FILE_APPEND
+            );
+        })->everyMinute();
         
-        // Отправка запланированных постов в Telegram
-        $schedule->command('telegram:send-scheduled-posts')->everyMinute();
+        // Автопостинг
+        $schedule->command('auto-posting:run')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     /**
@@ -28,7 +51,5 @@ class Kernel extends ConsoleKernel
     protected function commands(): void
     {
         $this->load(__DIR__.'/Commands');
-
-        require base_path('routes/console.php');
     }
 } 

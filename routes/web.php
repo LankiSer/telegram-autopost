@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\SettingsController;
 
 use App\Http\Controllers\StatisticsController;
+use App\Http\Controllers\AutoPostingController;
 
 
 // Главная страница
@@ -84,8 +85,14 @@ Route::middleware('auth')->group(function () {
     Route::resource('channels', ChannelController::class);
 
     // Посты
-    Route::resource('posts', PostController::class);
+    Route::get('/posts', [PostController::class, 'index'])->name('posts.index');
+    Route::get('/posts/create', [PostController::class, 'create'])->name('posts.create');
+    Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
+    Route::get('/posts/{post}', [PostController::class, 'show'])->name('posts.show');
+    Route::get('/posts/{post}/edit', [PostController::class, 'edit'])->name('posts.edit');
+    Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
     Route::post('/posts/{post}/publish', [PostController::class, 'publish'])->name('posts.publish');
+    Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('posts.destroy');
 
     // Подписки
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscription.plans');
@@ -106,6 +113,11 @@ Route::middleware('auth')->group(function () {
         ->middleware('admin')
         ->name('admin.statistics');
 
+    // Маршруты для автопостинга
+    Route::get('/channels/{channel}/auto-posting', [AutoPostingController::class, 'edit'])
+        ->name('channels.auto-posting.edit');
+    Route::put('/channels/{channel}/auto-posting', [AutoPostingController::class, 'update'])
+        ->name('channels.auto-posting.update');
 
 });
 

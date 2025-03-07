@@ -14,8 +14,20 @@ class TelegramService
 
     public function __construct()
     {
-        $settings = json_decode(Storage::get('settings.json') ?? '{}', true);
-        $this->token = $settings['telegram_bot_token'] ?? null;
+        // Сначала пробуем получить токен из конфига
+        $this->token = config('services.telegram.bot_token');
+
+        // Если токен не найден в конфиге, пробуем получить из settings.json
+        if (empty($this->token)) {
+            $settings = json_decode(Storage::get('settings.json') ?? '{}', true);
+            $this->token = $settings['telegram_bot_token'] ?? null;
+        }
+
+        if (empty($this->token)) {
+            \Log::error('Telegram bot token not found in config or settings.json');
+        } else {
+            \Log::info('Telegram bot token configured successfully');
+        }
     }
 
     /**
@@ -28,208 +40,60 @@ class TelegramService
      */
     public function sendMessage($chatId, $text, $media = null)
     {
-        Log::info('TelegramService: Начало отправки сообщения', [
-            'chat_id' => $chatId,
-            'text_length' => strlen($text),
-            'media_count' => is_array($media) ? count($media) : 0,
-            'token_exists' => !empty($this->token)
-        ]);
-
-        if (!$this->token) {
-            Log::error('TelegramService: Token not found');
-            throw new \Exception('Telegram bot token not found');
-        }
-
-        if (!$chatId) {
-            Log::error('TelegramService: Chat ID not provided');
-            throw new \Exception('Chat ID not provided');
-        }
-
         try {
-            // Если есть медиа-файлы, отправляем их
-            if ($media && count($media) > 0) {
-                Log::info('TelegramService: Подготовка к отправке медиа', [
-                    'media_paths' => $media
-                ]);
-
-                if (count($media) == 1) {
-                    // Отправляем одно фото с текстом
-                    $mediaPath = $media[0];
-
-                    // Проверка и нормализация пути к файлу
-                    if (strpos($mediaPath, 'public/') === 0) {
-                        // Если путь начинается с 'public/', удаляем префикс для Storage::disk('public')
-                        $normalizedPath = str_replace('public/', '', $mediaPath);
-                        Log::info('TelegramService: Нормализованный путь к медиа', [
-                            'original' => $mediaPath,
-                            'normalized' => $normalizedPath
-                        ]);
-
-                        if (Storage::disk('public')->exists($normalizedPath)) {
-                            $fullPath = Storage::disk('public')->path($normalizedPath);
-                            // Далее используем $fullPath
-                        } else {
-                            Log::error("TelegramService: Публичный файл не найден: {$normalizedPath}");
-                            throw new \Exception("Media file not found in public storage: {$mediaPath}");
-                        }
-                    } else {
-                        // Пробуем найти в корневом хранилище
-                        if (Storage::exists($mediaPath)) {
-                            $fullPath = Storage::path($mediaPath);
-                        } else {
-                            // Последняя попытка: проверить в публичном хранилище напрямую
-                            if (Storage::disk('public')->exists($mediaPath)) {
-                                $fullPath = Storage::disk('public')->path($mediaPath);
-                            } else {
-                                Log::error("TelegramService: Storage file not found: {$mediaPath}");
-                                Log::error("Пробуем поискать в доступных путях...");
-
-                                // Проверяем разные варианты путей для отладки
-                                $testPaths = [
-                                    $mediaPath,
-                                    'public/' . $mediaPath,
-                                    'media/' . basename($mediaPath),
-                                    'public/media/' . basename($mediaPath)
-                                ];
-
-                                foreach ($testPaths as $testPath) {
-                                    Log::info("Проверка пути: {$testPath} - " .
-                                              (Storage::exists($testPath) ? "НАЙДЕН" : "НЕ НАЙДЕН"));
-                                }
-
-                                throw new \Exception("Media file not found in any storage location: {$mediaPath}");
-                            }
-                        }
-                    }
-
-                    // Проверяем, что файл существует и доступен на диске
-                    if (!file_exists($fullPath)) {
-                        Log::error("TelegramService: Файл не найден по полному пути: {$fullPath}");
-                        throw new \Exception("Media file not found at path: {$mediaPath}");
-                    }
-
-                    Log::info("TelegramService: Отправка медиа-файла: {$fullPath}");
-
-                    // Отключаем проверку SSL-сертификата для разработки
-                    $response = Http::withoutVerifying()
-                        ->attach('photo', file_get_contents($fullPath), basename($fullPath))
-                        ->post("{$this->apiUrl}{$this->token}/sendPhoto", [
-                            'chat_id' => $chatId,
-                            'caption' => $text,
-                            'parse_mode' => 'HTML'
-                        ]);
-
-                    return [
-                        'success' => $response->successful(),
-                        'data' => $response->json(),
-                        'method' => 'sendPhoto'
-                    ];
-                } else {
-                    // Отправляем медиа-группу
-                    $mediaItems = [];
-
-                    // Подготавливаем массив медиа-файлов
-                    foreach ($media as $index => $mediaPath) {
-                        // Проверяем, существует ли файл
-                        if (Storage::exists($mediaPath)) {
-                            $fullPath = Storage::path($mediaPath);
-
-                            // Проверяем, что файл существует и доступен
-                            if (!file_exists($fullPath)) {
-                                Log::error("TelegramService: File not found at path: {$fullPath}");
-                                continue; // Пропускаем этот файл
-                            }
-
-                            // Определяем тип медиа по расширению
-                            $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
-                            $type = in_array($extension, ['jpg', 'jpeg', 'png', 'gif']) ? 'photo' : 'document';
-
-                            // Для первого элемента добавляем подпись
-                            if ($index === 0) {
-                                $mediaItems[] = [
-                                    'type' => $type,
-                                    'media' => 'attach://' . basename($fullPath),
-                                    'caption' => $text,
-                                    'parse_mode' => 'HTML'
-                                ];
-                            } else {
-                                $mediaItems[] = [
-                                    'type' => $type,
-                                    'media' => 'attach://' . basename($fullPath)
-                                ];
-                            }
-
-                            // Сохраняем путь для последующего прикрепления
-                            $attachments[basename($fullPath)] = file_get_contents($fullPath);
-                        }
-                    }
-
-                    // Если есть хотя бы один файл для отправки
-                    if (count($mediaItems) > 0) {
-                        $mediaRequest = Http::withoutVerifying();
-
-                        // Прикрепляем все файлы к запросу
-                        foreach ($attachments as $name => $content) {
-                            $mediaRequest->attach($name, $content);
-                        }
-
-                        // Отправляем медиа-группу
-                        $response = $mediaRequest->post("{$this->apiUrl}{$this->token}/sendMediaGroup", [
-                            'chat_id' => $chatId,
-                            'media' => json_encode($mediaItems)
-                        ]);
-
-                        return [
-                            'success' => $response->successful(),
-                            'data' => $response->json(),
-                            'method' => 'sendMediaGroup'
-                        ];
-                    }
-                }
+            if (empty($this->token)) {
+                throw new \Exception('Telegram bot token not configured');
             }
 
-            // Если нет медиа или они не были обработаны, отправляем просто текст
-            $response = Http::withoutVerifying()->post("{$this->apiUrl}{$this->token}/sendMessage", [
+            \Log::info('Attempting to send Telegram message', [
                 'chat_id' => $chatId,
-                'text' => $text,
-                'parse_mode' => 'HTML'
+                'text_length' => strlen($text),
+                'has_media' => !empty($media)
+            ]);
+
+            $response = Http::withoutVerifying()
+                ->timeout(10)
+                ->retry(3, 100)
+                ->withToken($this->token)
+                ->post("{$this->apiUrl}{$this->token}/sendMessage", [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                    'parse_mode' => 'HTML'
+                ]);
+
+            \Log::info('Telegram API response', [
+                'status' => $response->status(),
+                'body' => $response->json()
+            ]);
+
+            if ($response->successful() && $response->json('ok')) {
+                \Log::info('Message sent successfully', [
+                    'chat_id' => $chatId,
+                    'message_id' => $response->json('result.message_id')
+                ]);
+                return ['success' => true];
+            }
+
+            \Log::error('Failed to send message', [
+                'chat_id' => $chatId,
+                'error' => $response->json('description')
             ]);
 
             return [
-                'success' => $response->successful(),
-                'data' => $response->json(),
-                'method' => 'sendMessage'
+                'success' => false,
+                'error' => $response->json('description') ?? 'Unknown error'
             ];
         } catch (\Exception $e) {
-            Log::error('TelegramService error: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+            \Log::error('Exception while sending message', [
                 'chat_id' => $chatId,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            // Пытаемся отправить сообщение без медиа, если была ошибка с файлами
-            try {
-                $response = Http::withoutVerifying()->post("{$this->apiUrl}{$this->token}/sendMessage", [
-                    'chat_id' => $chatId,
-                    'text' => $text . "\n\n⚠️ *Примечание:* Не удалось отправить прикрепленные медиа-файлы из-за ошибки.",
-                    'parse_mode' => 'MarkdownV2'
-                ]);
-
-                return [
-                    'success' => true,
-                    'data' => $response->json(),
-                    'method' => 'sendMessage',
-                    'warning' => 'Media files were not sent due to an error: ' . $e->getMessage()
-                ];
-            } catch (\Exception $innerException) {
-                Log::error('TelegramService fallback error: ' . $innerException->getMessage());
-
-                return [
-                    'success' => false,
-                    'error' => $e->getMessage() . ' -> Fallback also failed: ' . $innerException->getMessage()
-                ];
-            }
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
     }
 
@@ -581,6 +445,24 @@ class TelegramService
             ];
         } catch (\Exception $e) {
             Log::error('Telegram getChannelStats error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    public function getToken()
+    {
+        try {
+            $settings = json_decode(Storage::get('settings.json') ?? '{}', true);
+            return [
+                'success' => true,
+                'token_exists' => !empty($this->token),
+                'settings_exists' => Storage::exists('settings.json'),
+                'settings_content' => $settings
+            ];
+        } catch (\Exception $e) {
             return [
                 'success' => false,
                 'error' => $e->getMessage()

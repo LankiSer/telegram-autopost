@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Services\TelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class PostController extends Controller
 {
@@ -64,14 +65,6 @@ class PostController extends Controller
     public function create()
     {
         $channels = auth()->user()->channels;
-        
-        // Проверяем, достиг ли пользователь лимита постов
-        $subscription = auth()->user()->activeSubscription();
-        if (!$subscription) {
-            return redirect()->route('subscription.plans')
-                ->with('error', 'Вам необходимо оформить подписку для создания постов');
-        }
-        
         return view('posts.create', compact('channels'));
     }
 
@@ -83,108 +76,34 @@ class PostController extends Controller
         $validated = $request->validate([
             'channel_id' => 'required|exists:channels,id',
             'content' => 'required|string',
-            'media.*' => 'nullable|file|max:10240', // Восстанавливаем валидацию для медиа-файлов
-            'scheduled_at' => 'nullable|date|after:now',
-            'status' => 'required|in:draft,publish_now,schedule'
+            'publish_type' => 'required|in:now,scheduled',
+            'scheduled_at' => 'required_if:publish_type,scheduled|nullable|date|after:now'
         ]);
 
-        // Получаем канал
-        $channel = Channel::findOrFail($validated['channel_id']);
-        if ($channel->user_id !== auth()->id()) {
-            return back()->with('error', 'Вы не можете создавать посты для этого канала');
+        // Проверяем, принадлежит ли канал пользователю
+        $channel = auth()->user()->channels()->findOrFail($validated['channel_id']);
+
+        // Определяем статус поста
+        $status = $validated['publish_type'] === 'now' ? 'pending' : 'scheduled';
+
+        // Проверяем возможность планирования
+        if ($status === 'scheduled' && !auth()->user()->canSchedulePosts()) {
+            return back()
+                ->withInput()
+                ->with('error', 'Планирование постов недоступно для вашего тарифного плана');
         }
 
-        // Проверка лимита постов
-        $subscription = auth()->user()->activeSubscription();
-        if (!$subscription) {
-            return redirect()->route('subscription.plans')
-                ->with('error', 'Вам необходимо оформить подписку для создания постов');
-        }
-        
-        $monthStart = now()->startOfMonth();
-        $currentPostsCount = Post::whereIn('channel_id', auth()->user()->channels->pluck('id'))
-            ->where('created_at', '>=', $monthStart)
-            ->count();
-        
-        if ($currentPostsCount >= $subscription->plan->posts_per_month) {
-            return back()->with('error', 'Вы достигли лимита постов для вашего тарифного плана');
-        }
-
-        // Определяем статус поста и время публикации
-        $status = 'draft';
-        $scheduledAt = null;
-
-        if ($validated['status'] === 'schedule' && isset($validated['scheduled_at'])) {
-            if (!auth()->user()->canSchedulePosts()) {
-                return back()->with('error', 'Планирование постов недоступно для вашего тарифного плана');
-            }
-            $status = 'scheduled';
-            $scheduledAt = $validated['scheduled_at'];
-        }
-
-        // Создаем пост
-        $post = new Post([
-            'channel_id' => $channel->id,
+        $post = $channel->posts()->create([
             'content' => $validated['content'],
-            'scheduled_at' => $scheduledAt,
-            'status' => $status
+            'status' => $status,
+            'scheduled_at' => $validated['publish_type'] === 'scheduled' ? $validated['scheduled_at'] : now(),
         ]);
-        $post->save();
 
-        // Загрузка медиа-файлов
-        $this->handleMediaUpload($request, $post);
-
-        // Если выбрана немедленная публикация
-        if ($validated['status'] === 'publish_now') {
-            try {
-                // Отправляем сообщение в Telegram
-                $response = $this->telegram->sendMessage(
-                    $channel->telegram_channel_id,
-                    $post->content,
-                    $post->media
-                );
-
-                // Обновленная обработка ответа (массив вместо объекта)
-                if (isset($response['success']) && $response['success']) {
-                    $post->update([
-                        'status' => 'published',
-                        'published_at' => now()
-                    ]);
-                    
-                    // Обновляем время последнего поста в канале
-                    $channel->update(['last_post_at' => now()]);
-                    
-                    return redirect()->route('posts.index')
-                        ->with('success', 'Пост успешно опубликован');
-                } else {
-                    $errorMessage = $response['error'] ?? 'Неизвестная ошибка';
-                    if (isset($response['data']['description'])) {
-                        $errorMessage = $response['data']['description'];
-                    }
-                    
-                    $post->update([
-                        'status' => 'failed',
-                        'error_message' => $errorMessage
-                    ]);
-                    
-                    return redirect()->route('posts.index')
-                        ->with('error', 'Ошибка публикации: ' . $errorMessage);
-                }
-            } catch (\Exception $e) {
-                $post->update([
-                    'status' => 'failed',
-                    'error_message' => $e->getMessage()
-                ]);
-                
-                return redirect()->route('posts.index')
-                    ->with('error', 'Ошибка публикации: ' . $e->getMessage());
-            }
-        }
-
-        return redirect()->route('posts.index')
-            ->with('success', $status === 'scheduled' 
-                ? 'Пост успешно запланирован на ' . (new \DateTime($scheduledAt))->format('d.m.Y H:i') 
-                : 'Пост сохранен как черновик');
+        return redirect()
+            ->route('posts.index')
+            ->with('success', $validated['publish_type'] === 'now' 
+                ? 'Пост добавлен в очередь на публикацию' 
+                : 'Пост запланирован на ' . Carbon::parse($validated['scheduled_at'])->format('d.m.Y H:i'));
     }
 
     public function show(Post $post)
@@ -199,55 +118,98 @@ class PostController extends Controller
 
     public function edit(Post $post)
     {
-        // Проверка доступа
-        if ($post->channel->user_id !== auth()->id()) {
-            abort(403);
+        try {
+            \Log::info('Attempting to edit post', [
+                'post_id' => $post->id,
+                'status' => $post->status,
+                'channel_user_id' => $post->channel->user_id,
+                'current_user_id' => auth()->id()
+            ]);
+
+            // Проверка доступа
+            if ($post->channel->user_id !== auth()->id()) {
+                \Log::warning('Unauthorized access attempt', [
+                    'post_id' => $post->id,
+                    'user_id' => auth()->id()
+                ]);
+                abort(403);
+            }
+
+            // Разрешаем редактировать также посты со статусом pending
+            if (!in_array($post->status, ['draft', 'scheduled', 'failed', 'pending'])) {
+                \Log::info('Post status not editable', [
+                    'post_id' => $post->id,
+                    'status' => $post->status
+                ]);
+                return redirect()
+                    ->route('posts.index')
+                    ->with('error', 'Этот пост нельзя редактировать');
+            }
+
+            $channels = auth()->user()->channels;
+            return view('posts.edit', compact('post', 'channels'));
+
+        } catch (\Exception $e) {
+            \Log::error('Error editing post', [
+                'post_id' => $post->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()
+                ->route('posts.index')
+                ->with('error', 'Произошла ошибка при открытии поста для редактирования');
         }
-        
-        // Проверяем, можно ли редактировать пост
-        if (!in_array($post->status, ['draft', 'scheduled'])) {
-            return redirect()->route('posts.index')
-                ->with('error', 'Нельзя редактировать опубликованные или неудачные посты');
-        }
-        
-        $channels = auth()->user()->channels;
-        return view('posts.edit', compact('post', 'channels'));
     }
 
     public function update(Request $request, Post $post)
     {
-        // Проверка доступа
-        if ($post->channel->user_id !== auth()->id()) {
-            abort(403);
-        }
-        
-        $validated = $request->validate([
-            'content' => 'required|string',
-            'scheduled_at' => 'nullable|date|after:now'
-        ]);
-
-        // Обновляем только черновики или запланированные посты
-        if (!in_array($post->status, ['draft', 'scheduled'])) {
-            return back()->with('error', 'Нельзя редактировать опубликованные или неудачные посты');
-        }
-
-        // Определение статуса поста
-        $status = 'draft';
-        if ($validated['scheduled_at'] ?? null) {
-            if (!auth()->user()->canSchedulePosts()) {
-                return back()->with('error', 'Планирование постов недоступно для вашего тарифного плана');
+        try {
+            // Проверка доступа
+            if ($post->channel->user_id !== auth()->id()) {
+                abort(403);
             }
-            $status = 'scheduled';
+            
+            $validated = $request->validate([
+                'content' => 'required|string',
+                'scheduled_at' => 'nullable|date|after:now'
+            ]);
+
+            // Разрешаем редактировать также посты со статусом pending
+            if (!in_array($post->status, ['draft', 'scheduled', 'pending'])) {
+                return back()->with('error', 'Нельзя редактировать опубликованные или неудачные посты');
+            }
+
+            // Сохраняем текущий статус, если он pending
+            $status = $post->status === 'pending' ? 'pending' : 'draft';
+            
+            // Если указана дата публикации
+            if ($validated['scheduled_at'] ?? null) {
+                if (!auth()->user()->canSchedulePosts()) {
+                    return back()->with('error', 'Планирование постов недоступно для вашего тарифного плана');
+                }
+                $status = 'scheduled';
+            }
+
+            $post->update([
+                'content' => $validated['content'],
+                'status' => $status,
+                'scheduled_at' => $validated['scheduled_at'] ?? null
+            ]);
+
+            return redirect()
+                ->route('posts.show', $post)
+                ->with('success', 'Пост успешно обновлен');
+        } catch (\Exception $e) {
+            \Log::error('Error updating post', [
+                'post_id' => $post->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()
+                ->with('error', 'Произошла ошибка при обновлении поста');
         }
-
-        $post->update([
-            'content' => $validated['content'],
-            'scheduled_at' => $validated['scheduled_at'] ?? null,
-            'status' => $status
-        ]);
-
-        return redirect()->route('posts.index')
-            ->with('success', 'Пост успешно обновлен');
     }
 
     public function destroy(Post $post)
