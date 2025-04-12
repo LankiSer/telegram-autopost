@@ -8,6 +8,7 @@ use App\Services\TelegramService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class ChannelController extends Controller
 {
@@ -23,19 +24,11 @@ class ChannelController extends Controller
         // Получаем свежий список каналов (без использования устаревшей директивы query_cache_type)
         $channels = Channel::where('user_id', auth()->id())
             ->select([
-
                 'id', 'name', 'description', 'type', 'telegram_username',
-
-                'id', 'name', 'description', 'type', 'telegram_username',
-
-                'telegram_chat_id', 'bot_added', 'created_at'
+                'telegram_chat_id', 'bot_added', 'created_at', 'members_count'
             ])
             ->latest()
             ->get();
-
-
-
-
 
         // Обновляем статус бота для каналов на основе логов
         foreach ($channels as $channel) {
@@ -44,18 +37,10 @@ class ChannelController extends Controller
                 $logFiles = glob(storage_path('logs/laravel*.log'));
                 $botConnected = false;
 
-
-
-
-
                 // Проверяем последний лог-файл на наличие записей о подключении бота
                 if (!empty($logFiles)) {
                     $latestLogFile = max($logFiles);
                     $logContent = file_exists($latestLogFile) ? file_get_contents($latestLogFile) : '';
-
-
-
-
 
                     // Проверяем содержимое лога на наличие записи о том, что бот является администратором
                     if (strpos($logContent, 'Bot is admin for @' . $channel->telegram_username) !== false) {
@@ -63,18 +48,10 @@ class ChannelController extends Controller
                     }
                 }
 
-
-
-
-
                 // Если бот подключен согласно логам, но статус не обновлен
                 if ($botConnected) {
                     $channel->bot_added = true;
                     $channel->save();
-
-
-
-
 
                     \Illuminate\Support\Facades\Log::info('Bot status updated based on logs', [
                         'channel_id' => $channel->id,
@@ -84,11 +61,9 @@ class ChannelController extends Controller
             }
         }
 
-
-
-
-
-        return view('channels.index', compact('channels'));
+        return Inertia::render('Channels/Index', [
+            'channels' => $channels
+        ]);
     }
 
     /**
@@ -96,7 +71,9 @@ class ChannelController extends Controller
      */
     public function create()
     {
-        return view('channels.create');
+        return Inertia::render('Channels/Create', [
+            'isModal' => true
+        ]);
     }
 
     /**
@@ -170,7 +147,9 @@ class ChannelController extends Controller
             abort(403);
         }
 
-        return view('channels.show', compact('channel'));
+        return Inertia::render('Channels/Show', [
+            'channel' => $channel
+        ]);
     }
 
     /**
@@ -183,7 +162,9 @@ class ChannelController extends Controller
             abort(403);
         }
 
-        return view('channels.edit', compact('channel'));
+        return Inertia::render('Channels/Edit', [
+            'channel' => $channel
+        ]);
     }
 
     /**
@@ -417,4 +398,112 @@ class ChannelController extends Controller
         return redirect()->route('channels.index')->with('success', 'Канал успешно создан!');
     }
 
+    /**
+     * Отображает форму настроек автопостинга для канала
+     */
+    public function editAutoPosting(Channel $channel)
+    {
+        // Проверка принадлежности канала текущему пользователю
+        if ($channel->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
+        return Inertia::render('Channels/AutoPosting', [
+            'channel' => $channel
+        ]);
+    }
+    
+    /**
+     * Обновляет настройки автопостинга для канала
+     */
+    public function updateAutoPosting(Request $request, Channel $channel)
+    {
+        // Проверка принадлежности канала текущему пользователю
+        if ($channel->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
+        $validated = $request->validate([
+            'auto_posting_enabled' => 'boolean',
+            'posting_interval' => 'required_if:auto_posting_enabled,true|nullable|integer|min:1',
+            'posting_time_start' => 'required_if:auto_posting_enabled,true|nullable|date_format:H:i',
+            'posting_time_end' => 'required_if:auto_posting_enabled,true|nullable|date_format:H:i|after:posting_time_start',
+            'content_prompt' => 'nullable|string',
+        ]);
+        
+        $channel->update($validated);
+        
+        return redirect()->route('channels.show', $channel->id)
+            ->with('success', 'Настройки автопостинга успешно обновлены');
+    }
+    
+    /**
+     * Метод для обновления статусов всех каналов
+     */
+    public function updateAllStatus()
+    {
+        try {
+            $channels = Channel::where('user_id', auth()->id())
+                ->where('type', 'telegram')
+                ->whereNotNull('telegram_username')
+                ->get();
+                
+            $telegramService = app(TelegramService::class);
+            $updatedCount = 0;
+            
+            foreach ($channels as $channel) {
+                $result = $telegramService->checkBotAccess($channel->telegram_username);
+                
+                if ((isset($result['is_admin']) && $result['is_admin']) || isset($result['ssl_warning'])) {
+                    // Если бот является администратором и получен chat_id
+                    if (isset($result['chat_id']) && $result['chat_id']) {
+                        $wasUpdated = !$channel->bot_added;
+                        
+                        // Обновляем данные о канале
+                        $channel->telegram_chat_id = $result['chat_id'];
+                        $channel->telegram_channel_id = $result['chat_id'];
+                        $channel->bot_added = true;
+                        $channel->save();
+                        
+                        if ($wasUpdated) {
+                            $updatedCount++;
+                        }
+                        
+                        // Если есть информация о подписчиках
+                        if (isset($result['members_count']) && $result['members_count'] > 0) {
+                            $channel->members_count = $result['members_count'];
+                            $channel->save();
+                        }
+                    }
+                }
+            }
+            
+            return redirect()->route('channels.index')
+                ->with('success', "Статусы каналов обновлены. Обновлено: $updatedCount");
+                
+        } catch (\Exception $e) {
+            return redirect()->route('channels.index')
+                ->with('error', 'Ошибка при обновлении статусов: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Отображает посты канала
+     */
+    public function posts(Channel $channel)
+    {
+        // Проверка принадлежности канала текущему пользователю
+        if ($channel->user_id !== auth()->id()) {
+            abort(403);
+        }
+        
+        $posts = $channel->posts()
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+            
+        return Inertia::render('Posts/Channel', [
+            'posts' => $posts,
+            'channel' => $channel
+        ]);
+    }
 }

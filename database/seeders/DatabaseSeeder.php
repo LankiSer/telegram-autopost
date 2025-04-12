@@ -14,24 +14,28 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Create admin and test users
+        User::firstOrCreate(
+            ['email' => 'admin@admin.com'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('admin'),
+                'email_verified_at' => now(),
+            ]
+        );
 
-        // Создаем админа
-        User::create([
-            'name' => 'Admin',
-            'email' => 'admin@admin.com',
-            'password' => Hash::make('admin'),
-        ]);
-
-        // Создаем обычного пользователя
-        User::create([
-            'name' => 'User',
-            'email' => 'user@user.com',
-            'password' => Hash::make('user'),
-        ]);
+        User::firstOrCreate(
+            ['email' => 'user@user.com'],
+            [
+                'name' => 'User',
+                'password' => Hash::make('user'),
+                'email_verified_at' => now(),
+            ]
+        );
 
         $this->call([
             SubscriptionPlanSeeder::class,
+            TestDataSeeder::class, // Add test data
         ]);
     }
 }

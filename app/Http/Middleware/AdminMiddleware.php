@@ -17,8 +17,8 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->user()->email !== 'admin@admin.com') {
-            abort(403);
+        if (!auth()->check() || auth()->user()->email !== 'admin@admin.com') {
+            abort(403, 'Доступ запрещен. Только для администраторов.');
         }
 
         return $next($request);

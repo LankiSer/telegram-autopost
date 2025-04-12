@@ -3,40 +3,115 @@
 namespace App\Http\Controllers;
 
 use App\Models\Channel;
+use App\Models\ChannelGroup;
 use App\Models\Post;
+use App\Models\Setting;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use Inertia\Inertia;
 
 class AdminController extends Controller
 {
-    public function users()
+    /**
+     * Отображает админ-панель
+     */
+    public function dashboard()
     {
-        $users = User::withCount(['channels', 'subscriptions'])
-            ->with('subscriptions.plan')
-            ->paginate(10);
+        // Получаем общую статистику
+        $totalUsers = User::count();
+        $totalChannels = Channel::count();
+        $totalPosts = Post::count();
+        $totalGroups = ChannelGroup::count();
+        
+        // Статистика по регистрациям пользователей
+        $userRegistrations = User::select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
+            ->where('created_at', '>=', Carbon::now()->subMonths(1))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
             
-        return view('admin.users', compact('users'));
+        // Статистика по созданию постов
+        $postsCreated = Post::select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
+            ->where('created_at', '>=', Carbon::now()->subMonths(1))
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+            
+        // Топ активных пользователей
+        $topUsers = User::withCount('posts')
+            ->orderBy('posts_count', 'desc')
+            ->limit(5)
+            ->get();
+            
+        // Недавно зарегистрированные пользователи
+        $recentUsers = User::orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+        
+        // Формируем массив данных для передачи в шаблон
+        $stats = [
+            'totalUsers' => $totalUsers,
+            'totalChannels' => $totalChannels,
+            'totalPosts' => $totalPosts,
+            'totalGroups' => $totalGroups,
+            'userRegistrations' => $userRegistrations,
+            'postsCreated' => $postsCreated,
+            'topUsers' => $topUsers,
+            'recentUsers' => $recentUsers
+        ];
+        
+        return Inertia::render('Admin/Dashboard', [
+            'stats' => $stats
+        ]);
     }
     
+    /**
+     * Отображает список пользователей
+     */
+    public function users()
+    {
+        $users = User::withCount('channels', 'posts')
+            ->withSum('channels as subscribers_count', 'subscribers_count')
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+            
+        return Inertia::render('Admin/Users', [
+            'users' => $users
+        ]);
+    }
+    
+    /**
+     * Отображает список каналов
+     */
     public function channels()
     {
         $channels = Channel::with('user')
             ->withCount('posts')
-            ->paginate(10);
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
             
-        return view('admin.channels', compact('channels'));
+        return Inertia::render('Admin/Channels', [
+            'channels' => $channels
+        ]);
     }
     
+    /**
+     * Отображает список постов
+     */
     public function posts()
     {
-        $posts = Post::with(['channel.user'])
-            ->latest()
-            ->paginate(15);
+        $posts = Post::with(['channel', 'user'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
             
-        return view('admin.posts', compact('posts'));
+        return Inertia::render('Admin/Posts', [
+            'posts' => $posts
+        ]);
     }
     
     public function subscriptions()
@@ -56,31 +131,32 @@ class AdminController extends Controller
         return view('admin.plans', compact('plans'));
     }
     
+    /**
+     * Отображает настройки системы
+     */
     public function settings()
     {
-        return view('admin.settings');
+        $settings = Setting::all()->pluck('value', 'key');
+        
+        return Inertia::render('Admin/Settings', [
+            'settings' => $settings
+        ]);
     }
     
+    /**
+     * Отображает логи системы
+     */
     public function logs()
     {
-        // Получаем файлы журналов из стандартного места в Laravel
-        $logFiles = [];
-        $logPath = storage_path('logs');
-        
-        if (file_exists($logPath)) {
-            $files = array_diff(scandir($logPath), ['.', '..']);
-            foreach ($files as $file) {
-                if (str_ends_with($file, '.log')) {
-                    $logFiles[] = [
-                        'name' => $file,
-                        'size' => round(filesize($logPath . '/' . $file) / 1024, 2),
-                        'modified' => date("Y-m-d H:i:s", filemtime($logPath . '/' . $file))
-                    ];
-                }
-            }
-        }
-        
-        return view('admin.logs', compact('logFiles'));
+        // Получаем последние 100 записей логов
+        $logs = DB::table('logs')
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
+            
+        return Inertia::render('Admin/Logs', [
+            'logs' => $logs
+        ]);
     }
 
     /**

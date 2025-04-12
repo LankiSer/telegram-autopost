@@ -8,6 +8,7 @@ use App\Services\TelegramService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
+use Inertia\Inertia;
 
 class PostController extends Controller
 {
@@ -23,26 +24,56 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        $channels = Channel::where('user_id', auth()->id())->get();
-        
-        $postsQuery = Post::query()
-            ->whereIn('channel_id', $channels->pluck('id'));
-        
-        // Фильтр по каналу
-        if ($request->has('channel') && $request->channel) {
-            $postsQuery->where('channel_id', $request->channel);
+        try {
+            $channels = Channel::where('user_id', auth()->id())->get();
+            
+            $postsQuery = Post::query()
+                ->whereIn('channel_id', $channels->pluck('id'))
+                ->with('channel'); // Подгружаем информацию о каналах
+            
+            // Фильтр по каналу
+            if ($request->has('channel') && $request->channel) {
+                $postsQuery->where('channel_id', $request->channel);
+            }
+            
+            // Фильтр по статусу
+            if ($request->has('status') && $request->status) {
+                $postsQuery->where('status', $request->status);
+            }
+            
+            $posts = $postsQuery->orderBy('created_at', 'desc')
+                ->paginate(10)
+                ->withQueryString();
+            
+            // Добавляем заголовки для постов на основе контента
+            $posts->through(function($post) {
+                if (!isset($post->title) || empty($post->title)) {
+                    $sanitizedContent = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', strip_tags($post->content ?? ''));
+                    $post->title = !empty($sanitizedContent) 
+                        ? substr($sanitizedContent, 0, 50) . (strlen($sanitizedContent) > 50 ? '...' : '') 
+                        : 'Без названия';
+                }
+                return $post;
+            });
+            
+            return \Inertia\Inertia::render('Posts/Index', [
+                'posts' => $posts,
+                'channels' => $channels,
+                'filters' => $request->only(['channel', 'status'])
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error loading posts', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return \Inertia\Inertia::render('Posts/Index', [
+                'posts' => [],
+                'channels' => [],
+                'filters' => $request->only(['channel', 'status']),
+                'error' => 'Произошла ошибка при загрузке постов. Пожалуйста, попробуйте позже.'
+            ]);
         }
-        
-        // Фильтр по статусу
-        if ($request->has('status') && $request->status) {
-            $postsQuery->where('status', $request->status);
-        }
-        
-        $posts = $postsQuery->orderBy('created_at', 'desc')
-            ->paginate(10)
-            ->withQueryString();
-        
-        return view('posts.index', compact('posts', 'channels'));
     }
 
     /**
@@ -50,22 +81,50 @@ class PostController extends Controller
      */
     public function channelPosts(Channel $channel)
     {
-        // Проверка принадлежности канала текущему пользователю
-        if ($channel->user_id !== auth()->id()) {
-            abort(403);
+        try {
+            // Проверка принадлежности канала текущему пользователю
+            if ($channel->user_id !== auth()->id()) {
+                abort(403);
+            }
+            
+            $posts = Post::where('channel_id', $channel->id)
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+                
+            // Добавляем заголовки для постов на основе контента
+            $posts->through(function($post) {
+                if (!isset($post->title) || empty($post->title)) {
+                    $sanitizedContent = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', strip_tags($post->content ?? ''));
+                    $post->title = !empty($sanitizedContent) 
+                        ? substr($sanitizedContent, 0, 50) . (strlen($sanitizedContent) > 50 ? '...' : '') 
+                        : 'Без названия';
+                }
+                return $post;
+            });
+            
+            return Inertia::render('Posts/Channel', [
+                'posts' => $posts,
+                'channel' => $channel
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error loading channel posts', [
+                'channel_id' => $channel->id ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()
+                ->route('channels.index')
+                ->with('error', 'Произошла ошибка при загрузке постов канала.');
         }
-        
-        $posts = Post::where('channel_id', $channel->id)
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
-        
-        return view('posts.channel', compact('posts', 'channel'));
     }
 
     public function create()
     {
         $channels = auth()->user()->channels;
-        return view('posts.create', compact('channels'));
+        return Inertia::render('Posts/Create', [
+            'channels' => $channels
+        ]);
     }
 
     /**
@@ -108,12 +167,39 @@ class PostController extends Controller
 
     public function show(Post $post)
     {
-        // Проверка доступа
-        if ($post->channel->user_id !== auth()->id()) {
-            abort(403);
+        try {
+            // Проверка доступа
+            if ($post->channel->user_id !== auth()->id()) {
+                abort(403);
+            }
+            
+            // Sanitize content if needed
+            if ($post->content) {
+                $post->content = preg_replace('/[\x00-\x1F]/', '', $post->content);
+            }
+            
+            // Generate title if missing
+            if (!isset($post->title) || empty($post->title)) {
+                $sanitizedContent = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', strip_tags($post->content ?? ''));
+                $post->title = !empty($sanitizedContent) 
+                    ? substr($sanitizedContent, 0, 50) . (strlen($sanitizedContent) > 50 ? '...' : '') 
+                    : 'Без названия';
+            }
+            
+            return \Inertia\Inertia::render('Posts/Show', [
+                'post' => $post->load('channel')
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error showing post', [
+                'post_id' => $post->id ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()
+                ->route('posts.index')
+                ->with('error', 'Произошла ошибка при просмотре поста.');
         }
-        
-        return view('posts.show', compact('post'));
     }
 
     public function edit(Post $post)
@@ -145,9 +231,25 @@ class PostController extends Controller
                     ->route('posts.index')
                     ->with('error', 'Этот пост нельзя редактировать');
             }
+            
+            // Sanitize content if needed
+            if ($post->content) {
+                $post->content = preg_replace('/[\x00-\x1F]/', '', $post->content);
+            }
+            
+            // Generate title if missing
+            if (!isset($post->title) || empty($post->title)) {
+                $sanitizedContent = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', strip_tags($post->content ?? ''));
+                $post->title = !empty($sanitizedContent) 
+                    ? substr($sanitizedContent, 0, 50) . (strlen($sanitizedContent) > 50 ? '...' : '') 
+                    : 'Без названия';
+            }
 
             $channels = auth()->user()->channels;
-            return view('posts.edit', compact('post', 'channels'));
+            return Inertia::render('Posts/Edit', [
+                'post' => $post,
+                'channels' => $channels
+            ]);
 
         } catch (\Exception $e) {
             \Log::error('Error editing post', [
@@ -214,22 +316,43 @@ class PostController extends Controller
 
     public function destroy(Post $post)
     {
-        // Проверка доступа
-        if ($post->channel->user_id !== auth()->id()) {
-            abort(403);
-        }
-        
-        // Удаляем медиафайлы поста, если они есть
-        if ($post->media) {
-            foreach ($post->media as $mediaPath) {
-                Storage::disk('public')->delete($mediaPath);
+        try {
+            // Проверка доступа
+            if ($post->channel->user_id !== auth()->id()) {
+                abort(403);
             }
+            
+            // Удаляем медиафайлы поста, если они есть
+            if (!empty($post->media) && is_array($post->media)) {
+                foreach ($post->media as $mediaPath) {
+                    try {
+                        if ($mediaPath) {
+                            Storage::disk('public')->delete($mediaPath);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::warning('Failed to delete media file', [
+                            'post_id' => $post->id,
+                            'mediaPath' => $mediaPath,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+            }
+            
+            $post->delete();
+            
+            return redirect()->route('posts.index')
+                ->with('success', 'Пост успешно удален');
+        } catch (\Exception $e) {
+            \Log::error('Error deleting post', [
+                'post_id' => $post->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('posts.index')
+                ->with('error', 'Произошла ошибка при удалении поста: ' . $e->getMessage());
         }
-        
-        $post->delete();
-        
-        return redirect()->route('posts.index')
-            ->with('success', 'Пост успешно удален');
     }
 
     /**
@@ -237,63 +360,74 @@ class PostController extends Controller
      */
     public function publish(Post $post)
     {
-        // Проверка доступа
-        if ($post->channel->user_id !== auth()->id()) {
-            abort(403);
-        }
-        
-        // Проверяем, что пост не опубликован
-        if ($post->status === 'published') {
-            return back()->with('error', 'Пост уже опубликован');
-        }
+        try {
+            // Проверка доступа
+            if ($post->channel->user_id !== auth()->id()) {
+                abort(403);
+            }
+            
+            // Проверяем, что пост не опубликован
+            if ($post->status === 'published') {
+                return back()->with('error', 'Пост уже опубликован');
+            }
 
-        // Проверяем, что у канала есть telegram_channel_id
-        if (!$post->channel->telegram_channel_id) {
-            // Пробуем получить ID канала из сервиса Telegram
-            try {
-                $telegramService = app(TelegramService::class);
-                $chatInfo = $telegramService->checkBotAccess($post->channel->telegram_username);
-                
-                if (isset($chatInfo['success']) && $chatInfo['success'] && isset($chatInfo['chat_id'])) {
-                    // Обновляем ID канала
-                    $post->channel->update([
-                        'telegram_chat_id' => $chatInfo['chat_id'],
-                        'telegram_channel_id' => $chatInfo['chat_id']
-                    ]);
+            // Проверяем, что у канала есть telegram_channel_id
+            if (!$post->channel->telegram_channel_id) {
+                // Пробуем получить ID канала из сервиса Telegram
+                try {
+                    $telegramService = app(TelegramService::class);
+                    $chatInfo = $telegramService->checkBotAccess($post->channel->telegram_username);
                     
-                    \Illuminate\Support\Facades\Log::info('Updated missing channel ID', [
-                        'channel_id' => $post->channel->id,
-                        'telegram_username' => $post->channel->telegram_username,
-                        'telegram_channel_id' => $chatInfo['chat_id']
-                    ]);
-                } else {
+                    if (isset($chatInfo['success']) && $chatInfo['success'] && isset($chatInfo['chat_id'])) {
+                        // Обновляем ID канала
+                        $post->channel->update([
+                            'telegram_chat_id' => $chatInfo['chat_id'],
+                            'telegram_channel_id' => $chatInfo['chat_id']
+                        ]);
+                        
+                        \Illuminate\Support\Facades\Log::info('Updated missing channel ID', [
+                            'channel_id' => $post->channel->id,
+                            'telegram_username' => $post->channel->telegram_username,
+                            'telegram_channel_id' => $chatInfo['chat_id']
+                        ]);
+                    } else {
+                        $post->update([
+                            'status' => 'failed',
+                            'error_message' => 'Не удалось получить ID канала. Пожалуйста, переподключите бота к каналу.'
+                        ]);
+                        
+                        return back()->with('error', 'Ошибка: ID канала не найден. Пожалуйста, переподключите бота к каналу через настройки канала.');
+                    }
+                } catch (\Exception $e) {
                     $post->update([
                         'status' => 'failed',
-                        'error_message' => 'Не удалось получить ID канала. Пожалуйста, переподключите бота к каналу.'
+                        'error_message' => 'Ошибка при получении ID канала: ' . $e->getMessage()
                     ]);
                     
-                    return back()->with('error', 'Ошибка: ID канала не найден. Пожалуйста, переподключите бота к каналу через настройки канала.');
+                    return back()->with('error', 'Ошибка: Не удалось получить ID канала. ' . $e->getMessage());
                 }
-            } catch (\Exception $e) {
-                $post->update([
-                    'status' => 'failed',
-                    'error_message' => 'Ошибка при получении ID канала: ' . $e->getMessage()
-                ]);
-                
-                return back()->with('error', 'Ошибка: Не удалось получить ID канала. ' . $e->getMessage());
             }
-        }
 
-        try {
             // Повторная проверка после возможного обновления
             if (!$post->channel->telegram_channel_id) {
                 throw new \Exception('ID канала не установлен. Пожалуйста, переподключите бота к каналу.');
             }
             
+            // Sanitize content before sending
+            $content = $post->content;
+            if ($content) {
+                $content = preg_replace('/[\x00-\x1F]/', '', $content);
+            }
+            
+            $media = [];
+            if (!empty($post->media) && is_array($post->media)) {
+                $media = $post->media;
+            }
+            
             $response = $this->telegram->sendMessage(
                 $post->channel->telegram_channel_id,
-                $post->content,
-                $post->media
+                $content,
+                $media
             );
 
             // Обрабатываем новый формат ответа (массив вместо объекта)
@@ -328,18 +462,18 @@ class PostController extends Controller
                 return back()->with('error', 'Ошибка публикации: ' . $errorMessage);
             }
         } catch (\Exception $e) {
+            \Log::error('Exception in post publishing', [
+                'post_id' => $post->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             $post->update([
                 'status' => 'failed',
                 'error_message' => $e->getMessage()
             ]);
             
-            \Illuminate\Support\Facades\Log::error('Exception in post publishing', [
-                'message' => $e->getMessage(),
-                'post_id' => $post->id,
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return back()->with('error', 'Ошибка публикации: ' . $e->getMessage());
+            return back()->with('error', 'Произошла ошибка при публикации поста: ' . $e->getMessage());
         }
     }
 
@@ -367,6 +501,32 @@ class PostController extends Controller
             
             // Обновляем медиа-файлы поста
             $post->update(['media' => $mediaPaths]);
+        }
+    }
+
+    public function debug(Request $request)
+    {
+        try {
+            $channels = Channel::where('user_id', auth()->id())->get();
+            
+            $postsQuery = Post::query()
+                ->whereIn('channel_id', $channels->pluck('id'))
+                ->with('channel')
+                ->limit(10);
+            
+            $posts = $postsQuery->get();
+            
+            return response()->json([
+                'status' => 'success',
+                'posts' => $posts,
+                'channels' => $channels
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
         }
     }
 } 

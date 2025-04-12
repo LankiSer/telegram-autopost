@@ -69,15 +69,66 @@ class StatisticsController extends Controller
             }])
             ->get();
             
-        return view('statistics.user', compact(
-            'totalPosts',
-            'publishedPosts',
-            'scheduledPosts',
-            'activityData',
-            'channelsStats',
-            'totalSubscribers',
-            'totalViews'
-        ));
+        // Получаем последние посты
+        $recentPosts = Post::whereIn('channel_id', $channels->pluck('id'))
+            ->where('status', 'published')
+            ->with('channel')
+            ->orderBy('published_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function($post) {
+                return [
+                    'id' => $post->id,
+                    'title' => $post->title ?: substr(strip_tags($post->content), 0, 50),
+                    'content' => $post->content ? substr(strip_tags($post->content), 0, 100) : '',
+                    'channel' => [
+                        'id' => $post->channel->id,
+                        'name' => $post->channel->name
+                    ],
+                    'published_at' => $post->published_at->format('d.m.Y H:i'),
+                    'views' => $post->views_count ?: 0
+                ];
+            });
+            
+        // Получаем топ каналов
+        $topChannels = $channels
+            ->map(function($channel) {
+                try {
+                    $stats = $this->telegram->getChannelStats($channel->telegram_channel_id);
+                    return [
+                        'id' => $channel->id,
+                        'name' => $channel->name,
+                        'subscribers' => $stats['success'] ? ($stats['subscribers'] ?? 0) : 0,
+                        'growth' => rand(1, 10) // Имитация роста для демонстрации
+                    ];
+                } catch (\Exception $e) {
+                    return [
+                        'id' => $channel->id,
+                        'name' => $channel->name,
+                        'subscribers' => 0,
+                        'growth' => 0
+                    ];
+                }
+            })
+            ->sortByDesc('subscribers')
+            ->values()
+            ->take(5);
+            
+        $stats = [
+            'totalChannels' => $channels->count(),
+            'totalPosts' => $totalPosts,
+            'publishedPosts' => $publishedPosts,
+            'scheduledPosts' => $scheduledPosts,
+            'totalSubscribers' => $totalSubscribers,
+            'totalViews' => $totalViews,
+            'activityData' => $activityData,
+            'recentPosts' => $recentPosts,
+            'topChannels' => $topChannels
+        ];
+            
+        return inertia('Statistics/Index', [
+            'stats' => $stats
+        ]);
     }
     
     /**
@@ -177,23 +228,27 @@ class StatisticsController extends Controller
             })
             ->sortByDesc('subscribers');
 
-        return view('statistics.admin', compact(
-            'totalUsers',
-            'activeUsers',
-            'totalChannels',
-            'activeChannels',
-            'totalPosts',
-            'publishedPosts',
-            'scheduledPosts',
-            'failedPosts',
-            'registrationsData',
-            'postsData',
-            'totalSubscribers',
-            'totalViews',
-            'topUsers',
-            'topChannels',
-            'channelsStats',
-            'hourlyStats'
-        ));
+        $adminStats = [
+            'totalUsers' => $totalUsers,
+            'activeUsers' => $activeUsers,
+            'totalChannels' => $totalChannels,
+            'activeChannels' => $activeChannels,
+            'totalPosts' => $totalPosts,
+            'publishedPosts' => $publishedPosts,
+            'scheduledPosts' => $scheduledPosts,
+            'failedPosts' => $failedPosts,
+            'registrationsData' => $registrationsData,
+            'postsData' => $postsData,
+            'totalSubscribers' => $totalSubscribers,
+            'totalViews' => $totalViews,
+            'topUsers' => $topUsers,
+            'topChannels' => $topChannels,
+            'channelsStats' => $channelsStats,
+            'hourlyStats' => $hourlyStats
+        ];
+
+        return inertia('Admin/Statistics', [
+            'stats' => $adminStats
+        ]);
     }
 } 

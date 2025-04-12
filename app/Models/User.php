@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class User extends Authenticatable
 {
@@ -47,12 +48,12 @@ class User extends Authenticatable
         ];
     }
 
-    public function channels()
+    public function channels(): HasMany
     {
         return $this->hasMany(Channel::class);
     }
 
-    public function posts()
+    public function posts(): HasManyThrough
     {
         return $this->hasManyThrough(Post::class, Channel::class);
     }
@@ -60,6 +61,14 @@ class User extends Authenticatable
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+    
+    /**
+     * Get the channel groups that belong to the user.
+     */
+    public function channelGroups(): HasMany
+    {
+        return $this->hasMany(ChannelGroup::class);
     }
 
     public function activeSubscription()

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -23,10 +24,13 @@ class Channel extends Model
         'content_prompt',
         'telegram_channel_id',
         'bot_added',
+        'category',
+        'tags',
     ];
 
     protected $casts = [
         'settings' => 'json',
+        'tags' => 'array',
     ];
 
     public function user(): BelongsTo
@@ -47,5 +51,13 @@ class Channel extends Model
     public function autoPostingSettings(): HasOne
     {
         return $this->hasOne(AutoPostingSetting::class);
+    }
+    
+    /**
+     * The groups that this channel belongs to.
+     */
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(ChannelGroup::class, 'channel_channel_group');
     }
 } 
