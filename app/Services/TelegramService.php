@@ -11,7 +11,7 @@ use Carbon\Carbon;
  * Сервис для работы с Telegram API
  * 
  * Для тестирования:
- * - Токен бота: 7833266654:AAHeOa--bxe8Tj4hYHXBsNMbnn6plrOiYFU
+ * - Токен бота: 
  */
 class TelegramService
 {
