@@ -122,8 +122,16 @@ class PostController extends Controller
     public function create()
     {
         $channels = auth()->user()->channels;
-        return Inertia::render('Posts/Create', [
-            'channels' => $channels
+        
+        // Добавляем отладку
+        \Log::info('Creating new post page, channels:', [
+            'user_id' => auth()->id(),
+            'channels_count' => $channels->count(),
+            'channels' => $channels->pluck('id', 'name')
+        ]);
+        
+        return inertia('Posts/Create', [
+            'channels' => $channels,
         ]);
     }
 
@@ -134,6 +142,7 @@ class PostController extends Controller
     {
         $validated = $request->validate([
             'channel_id' => 'required|exists:channels,id',
+            'title' => 'nullable|string|max:255',
             'content' => 'required|string',
             'publish_type' => 'required|in:now,scheduled',
             'scheduled_at' => 'required_if:publish_type,scheduled|nullable|date|after:now'
@@ -142,21 +151,82 @@ class PostController extends Controller
         // Проверяем, принадлежит ли канал пользователю
         $channel = auth()->user()->channels()->findOrFail($validated['channel_id']);
 
-        // Определяем статус поста
-        $status = $validated['publish_type'] === 'now' ? 'pending' : 'scheduled';
-
-        // Проверяем возможность планирования
-        if ($status === 'scheduled' && !auth()->user()->canSchedulePosts()) {
-            return back()
-                ->withInput()
-                ->with('error', 'Планирование постов недоступно для вашего тарифного плана');
+        // Определяем статус поста и время публикации
+        $status = '';
+        $scheduledAt = null;
+        
+        if ($validated['publish_type'] === 'now') {
+            $status = 'pending'; // Готов к отправке сейчас
+            $scheduledAt = null; // Явно устанавливаем null для немедленной публикации
+        } else {
+            $status = 'scheduled'; // Запланирован на будущее
+            $scheduledAt = $validated['scheduled_at'];
+            
+            // Проверяем возможность планирования
+            if (!auth()->user()->canSchedulePosts()) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'Планирование постов недоступно для вашего тарифного плана');
+            }
         }
 
         $post = $channel->posts()->create([
+            'title' => $validated['title'],
             'content' => $validated['content'],
             'status' => $status,
-            'scheduled_at' => $validated['publish_type'] === 'scheduled' ? $validated['scheduled_at'] : now(),
+            'user_id' => auth()->id(),
+            'scheduled_at' => $scheduledAt,
         ]);
+
+        // Обрабатываем загрузку медиа-файлов, если они есть
+        if ($request->hasFile('media')) {
+            $this->handleMediaUpload($request, $post);
+        }
+
+        // Если пост нужно опубликовать сразу, отправляем его в Telegram
+        if ($validated['publish_type'] === 'now') {
+            try {
+                $response = $this->telegram->sendMessage(
+                    $channel->telegram_channel_id,
+                    $validated['content'],
+                    $post->media
+                );
+
+                if ($response['success']) {
+                    $post->update([
+                        'status' => 'published',
+                        'published_at' => now(),
+                        'scheduled_at' => null
+                    ]);
+                    
+                    // Обновляем время последнего поста в канале
+                    $channel->update(['last_post_at' => now()]);
+                    
+                    return redirect()
+                        ->route('posts.index')
+                        ->with('success', 'Пост успешно опубликован');
+                } else {
+                    $errorMessage = $response['error'] ?? 'Неизвестная ошибка';
+                    $post->update([
+                        'status' => 'failed',
+                        'error_message' => $errorMessage
+                    ]);
+                    
+                    return redirect()
+                        ->route('posts.index')
+                        ->with('error', 'Ошибка публикации поста: ' . $errorMessage);
+                }
+            } catch (\Exception $e) {
+                $post->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage()
+                ]);
+                
+                return redirect()
+                    ->route('posts.index')
+                    ->with('error', 'Произошла ошибка при публикации поста: ' . $e->getMessage());
+            }
+        }
 
         return redirect()
             ->route('posts.index')

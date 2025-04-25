@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Channel;
 use App\Models\AutoPostingSetting;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class AutoPostingController extends Controller
 {
@@ -16,7 +17,12 @@ class AutoPostingController extends Controller
         }
 
         $settings = $channel->autoPostingSettings;
-        return view('channels.auto-posting', compact('channel', 'settings'));
+        
+        // Используем Inertia для рендеринга Vue компонента
+        return Inertia::render('Channels/AutoPosting', [
+            'channel' => $channel,
+            'settings' => $settings
+        ]);
     }
 
     public function update(Request $request, Channel $channel)

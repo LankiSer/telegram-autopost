@@ -36,6 +36,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SubscriptionPlanSeeder::class,
             TestDataSeeder::class, // Add test data
+            SubscriptionTestUserSeeder::class, // Add test user with subscription
+            AdminUserSeeder::class, // Set admin permissions
         ]);
     }
 }

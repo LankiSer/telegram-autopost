@@ -1,6 +1,10 @@
+<?php
+
+// Set the content of the .env file
+$envContent = <<<'EOT'
 APP_NAME=Laravel
 APP_ENV=local
-APP_KEY=base64:9Oy3fCyz1hxPrzd75ge4x1qcGsnykb/qSKGJbqIaR+0=
+APP_KEY=base64:qpPi5IiCacK3yiDLMQeJHgQdHAEuuBdwatAhS8HORDQ=
 APP_DEBUG=true
 APP_TIMEZONE=UTC
 APP_URL=http://localhost
@@ -21,12 +25,12 @@ LOG_STACK=single
 LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=telegram
-DB_USERNAME=root
-DB_PASSWORD=root
+DB_CONNECTION=sqlite
+# DB_HOST=127.0.0.1
+# DB_PORT=3306
+# DB_DATABASE=laravel
+# DB_USERNAME=root
+# DB_PASSWORD=
 
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -64,4 +68,17 @@ AWS_BUCKET=
 AWS_USE_PATH_STYLE_ENDPOINT=false
 
 VITE_APP_NAME="${APP_NAME}"
-GIGACHAT_TEST_MODE=false
+GIGACHAT_TEST_MODE=true
+EOT;
+
+// Write the content to the .env file
+file_put_contents('.env', $envContent);
+
+echo "Environment file created successfully!\n";
+
+// Check if the file exists
+if (file_exists('.env')) {
+    echo ".env file created and exists at " . realpath('.env') . "\n";
+} else {
+    echo "Error: .env file could not be created.\n";
+} 

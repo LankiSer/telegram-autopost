@@ -15,6 +15,8 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\AutoPostingCommand::class,
+        Commands\PostsProcessCommand::class,
+        Commands\SendScheduledPosts::class,
     ];
 
     /**
@@ -40,6 +42,18 @@ class Kernel extends ConsoleKernel
         
         // Автопостинг
         $schedule->command('auto-posting:run')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+            
+        // Обработка запланированных постов
+        $schedule->command('posts:process')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
+            
+        // Отправка постов со статусом "pending"
+        $schedule->command('telegram:send-scheduled-posts')
             ->everyMinute()
             ->withoutOverlapping()
             ->runInBackground();

@@ -16,6 +16,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\StatisticsController;
 use App\Http\Controllers\SchedulerController;
 use App\Http\Controllers\PostsViewController;
+use App\Http\Controllers\PostGenerationController;
 
 // Diagnostic route - doesn't require auth
 Route::get('/check', function() {
@@ -102,11 +103,20 @@ Route::middleware('auth')->group(function () {
         ->name('channel-groups.cross-promotion');
     
     // Subscription routes
-    Route::get('/subscriptions', function() {
-        return Inertia::render('Subscriptions/Index');
-    })->name('subscriptions.index');
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
     Route::post('/subscriptions/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
     Route::post('/subscriptions/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+    
+    // Debug route for subscription plans
+    Route::get('/subscriptions/debug', function() {
+        $plans = \App\Models\SubscriptionPlan::all();
+        $currentSubscription = auth()->user()->activeSubscription();
+        return response()->json([
+            'plans' => $plans,
+            'currentSubscription' => $currentSubscription,
+            'user' => auth()->user()
+        ]);
+    });
     
     // Statistics routes
     Route::get('/statistics', [StatisticsController::class, 'userStats'])->name('statistics');
@@ -135,6 +145,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/debug/posts', [PostController::class, 'debug']);
     Route::get('/debug/channel-groups', [ChannelGroupController::class, 'debug']);
+
+    // Новый маршрут для генерации постов
+    Route::post('/posts/generate', [PostGenerationController::class, 'generate'])->name('posts.generate');
 });
 
 require __DIR__.'/auth.php';

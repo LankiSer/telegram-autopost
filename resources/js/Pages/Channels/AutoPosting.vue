@@ -37,11 +37,11 @@
                             <div class="flex items-center">
                                 <input 
                                     type="checkbox" 
-                                    id="auto_posting_enabled" 
-                                    v-model="form.auto_posting_enabled" 
+                                    id="is_active" 
+                                    v-model="form.is_active" 
                                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-700 dark:bg-gray-900 rounded"
                                 >
-                                <label for="auto_posting_enabled" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                <label for="is_active" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Включить автопостинг
                                 </label>
                             </div>
@@ -50,67 +50,80 @@
                             </p>
                         </div>
 
-                        <div v-if="form.auto_posting_enabled" class="space-y-6 mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <div v-if="form.is_active" class="space-y-6 mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                             <div>
-                                <label for="posting_interval" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Интервал публикации (в часах)
+                                <label for="interval_value" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Интервал публикации
                                 </label>
-                                <input 
-                                    type="number" 
-                                    id="posting_interval" 
-                                    v-model="form.posting_interval" 
-                                    min="1" 
-                                    max="168" 
-                                    class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                    required
-                                >
+                                <div class="flex items-center mt-1 space-x-2">
+                                    <input 
+                                        type="number" 
+                                        id="interval_value" 
+                                        v-model="form.interval_value" 
+                                        min="1" 
+                                        max="168" 
+                                        class="block w-1/3 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        required
+                                    >
+                                    <select
+                                        id="interval_type"
+                                        v-model="form.interval_type"
+                                        class="block w-1/3 rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        required
+                                    >
+                                        <option value="minutes">Минуты</option>
+                                        <option value="hours">Часы</option>
+                                        <option value="days">Дни</option>
+                                        <option value="weeks">Недели</option>
+                                    </select>
+                                </div>
                                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Определяет, как часто будут публиковаться новые посты (от 1 часа до 7 дней)
+                                    Определяет, как часто будут публиковаться новые посты
                                 </p>
-                                <div v-if="form.errors.posting_interval" class="text-red-500 text-sm mt-1">{{ form.errors.posting_interval }}</div>
+                                <div v-if="form.errors.interval_value" class="text-red-500 text-sm mt-1">{{ form.errors.interval_value }}</div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label for="posting_time_start" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label for="schedule_start_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Время начала публикаций
                                     </label>
                                     <input 
                                         type="time" 
-                                        id="posting_time_start" 
-                                        v-model="form.posting_time_start" 
+                                        id="schedule_start_time" 
+                                        v-model="form.schedule_start_time" 
                                         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         required
                                     >
-                                    <div v-if="form.errors.posting_time_start" class="text-red-500 text-sm mt-1">{{ form.errors.posting_time_start }}</div>
+                                    <div v-if="form.errors.schedule_start_time" class="text-red-500 text-sm mt-1">{{ form.errors.schedule_start_time }}</div>
                                 </div>
 
                                 <div>
-                                    <label for="posting_time_end" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <label for="schedule_end_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Время окончания публикаций
                                     </label>
                                     <input 
                                         type="time" 
-                                        id="posting_time_end" 
-                                        v-model="form.posting_time_end" 
+                                        id="schedule_end_time" 
+                                        v-model="form.schedule_end_time" 
                                         class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                         required
                                     >
                                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                         Публикации будут происходить только в указанный временной интервал
                                     </p>
-                                    <div v-if="form.errors.posting_time_end" class="text-red-500 text-sm mt-1">{{ form.errors.posting_time_end }}</div>
+                                    <div v-if="form.errors.schedule_end_time" class="text-red-500 text-sm mt-1">{{ form.errors.schedule_end_time }}</div>
                                 </div>
                             </div>
                         </div>
 
                         <div>
-                            <label for="content_prompt" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="prompt_template" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Промпт для генерации контента
                             </label>
                             <textarea 
-                                id="content_prompt" 
-                                v-model="form.content_prompt" 
+                                id="prompt_template" 
+                                v-model="form.prompt_template" 
                                 rows="4" 
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                 placeholder="Опишите, какой контент должен генерироваться для этого канала..."
@@ -118,7 +131,7 @@
                             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                 Используйте этот промпт для более точной настройки генерации контента. Например: "Новости о технологиях, фокус на AI и блокчейн"
                             </p>
-                            <div v-if="form.errors.content_prompt" class="text-red-500 text-sm mt-1">{{ form.errors.content_prompt }}</div>
+                            <div v-if="form.errors.prompt_template" class="text-red-500 text-sm mt-1">{{ form.errors.prompt_template }}</div>
                         </div>
 
                         <div class="flex items-center space-x-4 pt-4">
@@ -152,15 +165,23 @@ import { useForm, Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
-    channel: Object
+    channel: Object,
+    settings: Object
 });
 
+// Initialize form data from existing settings or with defaults
+const formSettings = props.settings || {};
+const scheduleStartTime = formSettings.posting_schedule?.start_time || '09:00';
+const scheduleEndTime = formSettings.posting_schedule?.end_time || '21:00';
+
 const form = useForm({
-    auto_posting_enabled: props.channel.auto_posting_enabled || false,
-    posting_interval: props.channel.posting_interval || 24,
-    posting_time_start: props.channel.posting_time_start || '09:00',
-    posting_time_end: props.channel.posting_time_end || '21:00',
-    content_prompt: props.channel.content_prompt || '',
+    is_active: formSettings.is_active || false,
+    interval_value: formSettings.interval_value || 24,
+    interval_type: formSettings.interval_type || 'hours',
+    schedule_start_time: scheduleStartTime,
+    schedule_end_time: scheduleEndTime,
+    prompt_template: formSettings.prompt_template || '',
+    schedule_days: formSettings.posting_schedule?.days || [1, 2, 3, 4, 5, 6, 7],
 });
 
 const submit = () => {

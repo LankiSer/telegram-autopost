@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
+/**
+ * Сервис для работы с Telegram API
+ * 
+ * Для тестирования:
+ * - Токен бота: 7833266654:AAHeOa--bxe8Tj4hYHXBsNMbnn6plrOiYFU
+ */
 class TelegramService
 {
     protected $token;
@@ -14,7 +20,16 @@ class TelegramService
 
     public function __construct()
     {
-        // Сначала пробуем получить токен из конфига
+        // Получаем токен из настроек администратора
+        $admin = \App\Models\User::where('is_admin', true)->first();
+        
+        if ($admin && !empty($admin->telegram_bot_token)) {
+            $this->token = $admin->telegram_bot_token;
+            \Log::info('Telegram bot token loaded from admin settings');
+            return;
+        }
+        
+        // Если не нашли в админе, пробуем получить токен из конфига
         $this->token = config('services.telegram.bot_token');
 
         // Если токен не найден в конфиге, пробуем получить из settings.json
@@ -24,10 +39,46 @@ class TelegramService
         }
 
         if (empty($this->token)) {
-            \Log::error('Telegram bot token not found in config or settings.json');
+            \Log::error('Telegram bot token not found in admin settings, config or settings.json');
         } else {
             \Log::info('Telegram bot token configured successfully');
         }
+    }
+
+    /**
+     * Экранирует специальные символы в тексте для Telegram MarkdownV2
+     * 
+     * @param string $text Текст для экранирования
+     * @return string Экранированный текст
+     */
+    private function escapeMarkdown($text) 
+    {
+        // Символы, которые нужно экранировать в MarkdownV2
+        $specialChars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
+        
+        // Сохраняем хештеги перед экранированием
+        $hashtags = [];
+        if (preg_match_all('/(^|\s)(#[\w\d]+)/', $text, $matches)) {
+            $hashtags = $matches[2];
+            // Временно заменяем хештеги на маркеры
+            foreach ($hashtags as $index => $hashtag) {
+                $text = str_replace($hashtag, "HASHTAG_MARKER_{$index}", $text);
+            }
+        }
+        
+        // Экранируем каждый спецсимвол
+        foreach ($specialChars as $char) {
+            $text = str_replace($char, '\\' . $char, $text);
+        }
+        
+        // Восстанавливаем хештеги
+        foreach ($hashtags as $index => $hashtag) {
+            // Убираем экранирование для символа # в хештегах
+            $cleanHashtag = substr($hashtag, 0, 1) . substr($hashtag, 1);
+            $text = str_replace("HASHTAG_MARKER_{$index}", $cleanHashtag, $text);
+        }
+        
+        return $text;
     }
 
     /**
@@ -41,55 +92,100 @@ class TelegramService
     public function sendMessage($chatId, $text, $media = null)
     {
         try {
-            if (empty($this->token)) {
-                throw new \Exception('Telegram bot token not configured');
+            // Проверяем наличие токена
+            $token = $this->getToken();
+            if (empty($token)) {
+                return [
+                    'success' => false,
+                    'error' => 'Telegram bot token is empty'
+                ];
             }
-
-            \Log::info('Attempting to send Telegram message', [
+            
+            // Автоматически экранируем спецсимволы для Markdown V2
+            $escapedText = $this->escapeMarkdown($text);
+            
+            // Если передан массив медиафайлов, отправляем медиа-группу
+            if (is_array($media) && count($media) > 0) {
+                // Подготовка данных для media group
+                return $this->sendMediaGroup($chatId, $escapedText, $media);
+            }
+            
+            // Обычное сообщение с текстом
+            $params = [
                 'chat_id' => $chatId,
-                'text_length' => strlen($text),
-                'has_media' => !empty($media)
-            ]);
-
-            $response = Http::withoutVerifying()
-                ->timeout(10)
-                ->retry(3, 100)
-                ->withToken($this->token)
-                ->post("{$this->apiUrl}{$this->token}/sendMessage", [
-                    'chat_id' => $chatId,
-                    'text' => $text,
-                    'parse_mode' => 'HTML'
-                ]);
-
+                'text' => $escapedText,
+                'parse_mode' => 'MarkdownV2', // Включаем поддержку Markdown
+                'disable_web_page_preview' => false
+            ];
+            
+            // Если есть одиночный медиафайл, отправляем фото или видео
+            if (!empty($media) && is_string($media)) {
+                $mediaType = $this->getMediaType($media);
+                
+                if ($mediaType === 'photo') {
+                    // Отправляем фото с подписью
+                    $params = [
+                        'chat_id' => $chatId,
+                        'photo' => $media,
+                        'caption' => $escapedText,
+                        'parse_mode' => 'MarkdownV2'
+                    ];
+                    
+                    $response = Http::withoutVerifying()
+                        ->timeout(30)
+                        ->post("https://api.telegram.org/bot{$token}/sendPhoto", $params);
+                } 
+                elseif ($mediaType === 'video') {
+                    // Отправляем видео с подписью
+                    $params = [
+                        'chat_id' => $chatId,
+                        'video' => $media,
+                        'caption' => $escapedText,
+                        'parse_mode' => 'MarkdownV2'
+                    ];
+                    
+                    $response = Http::withoutVerifying()
+                        ->timeout(30)
+                        ->post("https://api.telegram.org/bot{$token}/sendVideo", $params);
+                }
+                else {
+                    // Если тип медиа не определен, отправляем обычное сообщение
+                    $response = Http::withoutVerifying()
+                        ->timeout(30)
+                        ->post("https://api.telegram.org/bot{$token}/sendMessage", $params);
+                }
+            } else {
+                // Отправляем обычное текстовое сообщение
+                $response = Http::withoutVerifying()
+                    ->timeout(30)
+                    ->post("https://api.telegram.org/bot{$token}/sendMessage", $params);
+            }
+            
             \Log::info('Telegram API response', [
                 'status' => $response->status(),
                 'body' => $response->json()
             ]);
-
-            if ($response->successful() && $response->json('ok')) {
-                \Log::info('Message sent successfully', [
-                    'chat_id' => $chatId,
-                    'message_id' => $response->json('result.message_id')
-                ]);
-                return ['success' => true];
+            
+            if ($response->successful() && isset($response->json()['ok']) && $response->json()['ok'] === true) {
+                return [
+                    'success' => true,
+                    'message_id' => $response->json()['result']['message_id'] ?? null,
+                    'result' => $response->json()
+                ];
             }
-
-            \Log::error('Failed to send message', [
-                'chat_id' => $chatId,
-                'error' => $response->json('description')
-            ]);
-
+            
             return [
                 'success' => false,
-                'error' => $response->json('description') ?? 'Unknown error'
+                'error' => $response->json()['description'] ?? 'Unknown error'
             ];
+            
         } catch (\Exception $e) {
-            \Log::error('Exception while sending message', [
+            \Log::error('Error sending message to Telegram', [
                 'chat_id' => $chatId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-
+            
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -452,7 +548,26 @@ class TelegramService
         }
     }
 
+    /**
+     * Возвращает токен бота
+     * 
+     * @return string Токен бота
+     */
     public function getToken()
+    {
+        // Возвращаем токен из свойства класса
+        if (empty($this->token)) {
+            Log::error('Telegram bot token is empty');
+        }
+        return $this->token;
+    }
+    
+    /**
+     * Получает информацию о настройках токена (для дебага)
+     * 
+     * @return array Информация о токене и настройках
+     */
+    public function getTokenInfo()
     {
         try {
             $settings = json_decode(Storage::get('settings.json') ?? '{}', true);
@@ -463,6 +578,183 @@ class TelegramService
                 'settings_content' => $settings
             ];
         } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Отправляет группу медиа-файлов в Telegram
+     *
+     * @param string $chatId ID чата или канала
+     * @param string $caption Подпись к медиа-группе
+     * @param array $media Массив путей к медиа-файлам
+     * @return array Результат отправки
+     */
+    private function sendMediaGroup($chatId, $caption, array $media)
+    {
+        \Log::info('Sending media group to Telegram', [
+            'chat_id' => $chatId,
+            'media_count' => count($media),
+        ]);
+
+        $token = $this->getToken();
+        if (empty($token)) {
+            \Log::error('Cannot send media group: Telegram bot token is empty');
+            return [
+                'success' => false,
+                'error' => 'Telegram bot token is empty'
+            ];
+        }
+
+        try {
+            // Prepare media items array
+            $mediaItems = [];
+            $mediaCounter = 0;
+            
+            // First 10 media files only, as per Telegram API limitations
+            foreach ($media as $mediaFile) {
+                if ($mediaCounter >= 10) break;
+                
+                // Пропускаем пустые значения
+                if (empty($mediaFile)) continue;
+                
+                $mediaUrl = Storage::disk('public')->url($mediaFile);
+                
+                // Определяем тип медиа
+                $mediaType = 'photo'; // По умолчанию
+                
+                // Если это видео, устанавливаем соответствующий тип
+                $extension = pathinfo($mediaFile, PATHINFO_EXTENSION);
+                if (in_array(strtolower($extension), ['mp4', 'mov', 'avi', '3gp'])) {
+                    $mediaType = 'video';
+                }
+                
+                // Add to media items array
+                $mediaItem = [
+                    'type' => $mediaType,
+                    'media' => $mediaUrl,
+                ];
+                
+                // Add caption to the first media item only
+                if ($mediaCounter === 0 && $caption) {
+                    $mediaItem['caption'] = $caption;
+                    $mediaItem['parse_mode'] = 'MarkdownV2';  // Использовать MarkdownV2 вместо Markdown
+                }
+                
+                $mediaItems[] = $mediaItem;
+                $mediaCounter++;
+            }
+            
+            // If we have prepared media items, send them
+            if (!empty($mediaItems)) {
+                $url = "https://api.telegram.org/bot{$token}/sendMediaGroup";
+                
+                \Log::info('Sending media group to Telegram API', [
+                    'url' => $url,
+                    'chat_id' => $chatId,
+                    'media_count' => count($mediaItems)
+                ]);
+                
+                $response = Http::withoutVerifying()->timeout(30)->post($url, [
+                    'chat_id' => $chatId,
+                    'media' => $mediaItems
+                ]);
+                
+                \Log::info('Telegram API response for media group', [
+                    'status' => $response->status(),
+                    'body' => $response->json()
+                ]);
+                
+                if ($response->successful() && isset($response['ok']) && $response['ok']) {
+                    return [
+                        'success' => true,
+                        'message_id' => $response['result'][0]['message_id'] ?? null
+                    ];
+                } else {
+                    return [
+                        'success' => false,
+                        'error' => 'Failed to send media group: ' . ($response['description'] ?? 'Unknown error'),
+                        'data' => $response->json()
+                    ];
+                }
+            } else {
+                \Log::warning('No valid media items to send');
+                return [
+                    'success' => false,
+                    'error' => 'No valid media items to send'
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::error('Exception in sendMediaGroup', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => 'Exception: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Проверка доступности Telegram API и валидности токена
+     *
+     * @return array Результат проверки
+     */
+    public function testConnection()
+    {
+        try {
+            $token = $this->getToken();
+            if (empty($token)) {
+                \Log::error('Test connection failed: Telegram bot token is empty');
+                return [
+                    'success' => false,
+                    'error' => 'Telegram bot token is empty'
+                ];
+            }
+            
+            \Log::info('Testing Telegram API connection');
+            $response = Http::withoutVerifying()
+                ->timeout(10)
+                ->retry(3, 100) // Add retry functionality
+                ->get("https://api.telegram.org/bot{$token}/getMe");
+                
+            \Log::info('Telegram API test response', [
+                'status' => $response->status(),
+                'body' => $response->json()
+            ]);
+                
+            if ($response->successful() && isset($response->json()['ok']) && $response->json()['ok'] === true) {
+                $botInfo = $response->json()['result'];
+                return [
+                    'success' => true,
+                    'bot_id' => $botInfo['id'] ?? null,
+                    'bot_name' => $botInfo['first_name'] ?? null,
+                    'bot_username' => $botInfo['username'] ?? null,
+                    'message' => 'Successfully connected to Telegram API'
+                ];
+            }
+            
+            \Log::error('Telegram API test failed', [
+                'status_code' => $response->status(),
+                'error' => $response->json()['description'] ?? 'Unknown error'
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => $response->json()['description'] ?? 'Unknown error',
+                'status_code' => $response->status()
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Telegram test connection error', [
+                'error' => $e->getMessage()
+            ]);
+            
             return [
                 'success' => false,
                 'error' => $e->getMessage()

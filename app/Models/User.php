@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -23,6 +24,13 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'openai_api_key',
+        'telegram_bot_token',
+        'telegram_bot_name',
+        'telegram_bot_username',
+        'telegram_bot_description',
+        'telegram_bot_link',
+        'is_admin',
     ];
 
     /**
@@ -33,6 +41,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'openai_api_key',
+        'telegram_bot_token',
     ];
 
     /**
@@ -45,6 +55,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
         ];
     }
 
@@ -133,5 +144,43 @@ class User extends Authenticatable
         
         // Проверяем, не превышен ли лимит постов
         return $currentPostsCount < $subscription->plan->posts_per_month;
+    }
+
+    /**
+     * Проверка, является ли пользователь администратором
+     * 
+     * @return bool
+     */
+    public function isAdmin(): bool
+    {
+        return $this->is_admin === true;
+    }
+    
+    /**
+     * Проверка, настроен ли API ключ OpenAI
+     * 
+     * @return bool
+     */
+    public function hasOpenAiKey(): bool
+    {
+        return !empty($this->openai_api_key);
+    }
+    
+    /**
+     * Проверка, настроен ли токен Telegram бота
+     * 
+     * @return bool
+     */
+    public function hasTelegramBotToken(): bool
+    {
+        return !empty($this->telegram_bot_token);
+    }
+
+    /**
+     * Get the GigaChat credential associated with the user.
+     */
+    public function gigaChatCredential(): HasOne
+    {
+        return $this->hasOne(GigaChatCredential::class);
     }
 }

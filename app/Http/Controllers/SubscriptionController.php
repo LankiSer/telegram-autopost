@@ -5,15 +5,46 @@ namespace App\Http\Controllers;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class SubscriptionController extends Controller
 {
     public function index()
     {
-        $plans = SubscriptionPlan::all();
+        // Get unique plans - using a different approach that's compatible with MySQL's only_full_group_by mode
+        $planNames = SubscriptionPlan::select('name')->distinct()->pluck('name');
+        $plans = collect();
+        
+        foreach ($planNames as $name) {
+            // Get the newest plan for each name
+            $plan = SubscriptionPlan::where('name', $name)
+                ->orderBy('created_at', 'desc')
+                ->first();
+                
+            if ($plan) {
+                $plans->push($plan);
+            }
+        }
+            
         $currentSubscription = auth()->user()->activeSubscription();
         
-        return view('subscriptions.index', compact('plans', 'currentSubscription'));
+        return Inertia::render('Subscriptions/Index', [
+            'plans' => $plans,
+            'currentSubscription' => $currentSubscription ? [
+                'id' => $currentSubscription->id,
+                'name' => $currentSubscription->plan->name,
+                'description' => $currentSubscription->plan->description,
+                'starts_at' => $currentSubscription->starts_at,
+                'ends_at' => $currentSubscription->ends_at,
+                'status' => $currentSubscription->status,
+                'plan_id' => $currentSubscription->plan_id,
+                'channel_limit' => $currentSubscription->plan->channel_limit,
+                'posts_per_month' => $currentSubscription->plan->posts_per_month,
+                'scheduling_enabled' => $currentSubscription->plan->scheduling_enabled,
+                'analytics_enabled' => $currentSubscription->plan->analytics_enabled,
+                'price' => $currentSubscription->plan->price,
+            ] : null
+        ]);
     }
     
     public function subscribe(Request $request)
@@ -45,7 +76,7 @@ class SubscriptionController extends Controller
             'status' => 'active'
         ]);
         
-        return redirect()->route('dashboard')
+        return redirect()->route('subscriptions.index')
             ->with('success', "Вы успешно подписались на тариф {$plan->name}");
     }
     
@@ -59,9 +90,11 @@ class SubscriptionController extends Controller
                 'ends_at' => now()
             ]);
             
-            return back()->with('success', 'Подписка успешно отменена');
+            return redirect()->route('subscriptions.index')
+                ->with('success', 'Подписка успешно отменена');
         }
         
-        return back()->with('error', 'У вас нет активной подписки');
+        return redirect()->route('subscriptions.index')
+            ->with('error', 'У вас нет активной подписки');
     }
 } 
