@@ -35,29 +35,10 @@ class GigaChatService
      */
     protected function authenticate()
     {
-        // Используем хардкодный ключ авторизации
-        $hardcodedAuthKey = 'MTM5ZGVlYzYtMzYwNC00NDVmLWExNjktMDk4NTg0NTRhZDhhOjFhODM1YWI3LTI1ODItNGUxYS05YzRiLWZlNmQ2OTBhM2NlOQ==';
-        $defaultAuthUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
-        $defaultApiUrl = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
-        
-        // Если нет учетных данных или они неполные, используем хардкодный ключ
+        // Проверяем наличие учетных данных
         if (!$this->credential) {
-            Log::info('GigaChat: Используем хардкодный ключ авторизации');
-            // Создаем временный объект учетных данных для работы
-            $this->credential = new GigaChatCredential();
-            $this->credential->auth_url = $defaultAuthUrl;
-            $this->credential->api_url = $defaultApiUrl;
-            $this->credential->client_id = 'hardcoded_id';
-            $this->credential->client_secret = $hardcodedAuthKey;
-        } else if (empty($this->credential->auth_url) || 
-                  empty($this->credential->client_id) || 
-                  empty($this->credential->client_secret)) {
-            // Дополняем недостающие данные
-            Log::info('GigaChat: Дополняем недостающие данные хардкодными значениями');
-            if (empty($this->credential->auth_url)) $this->credential->auth_url = $defaultAuthUrl;
-            if (empty($this->credential->api_url)) $this->credential->api_url = $defaultApiUrl;
-            if (empty($this->credential->client_id)) $this->credential->client_id = 'hardcoded_id';
-            if (empty($this->credential->client_secret)) $this->credential->client_secret = $hardcodedAuthKey;
+            Log::error('GigaChat: Отсутствуют учетные данные');
+            return false;
         }
 
         try {
@@ -78,8 +59,15 @@ class GigaChatService
             
             Log::info('GigaChat: Запрос нового токена');
             
-            // Используем Basic Auth согласно документации GigaChat
-            // Authorization header = "Basic " + client_secret (Authorization key)
+            // Проверяем наличие всех необходимых учетных данных
+            if (empty($this->credential->auth_url) || 
+                empty($this->credential->client_id) || 
+                empty($this->credential->client_secret)) {
+                Log::error('GigaChat: Отсутствуют необходимые учетные данные для аутентификации');
+                return false;
+            }
+            
+            // Выполняем запрос для получения токена
             $response = Http::withoutVerifying()
                 ->timeout($this->timeout)
                 ->withHeaders([
@@ -197,9 +185,11 @@ class GigaChatService
      *
      * @param array $data Данные для генерации текста
      * @param string $prompt Промпт для генерации
+     * @param string|null $systemMessage Системное сообщение для API
      * @return string Сгенерированный текст
+     * @throws Exception В случае ошибки при генерации текста
      */
-    public function generateText(array $data, string $prompt): string
+    public function generateText(array $data, string $prompt, string $systemMessage = null): string
     {
         // Логируем запрос для диагностики
         Log::debug('GigaChat: Запрос на генерацию текста', [
@@ -207,21 +197,15 @@ class GigaChatService
             'prompt_preview' => substr($prompt, 0, 100) . '...'
         ]);
 
-        // Проверяем тестовый режим
-        if ($this->isTestMode()) {
-            Log::info('GigaChat: Работа в тестовом режиме, возвращаем заглушку');
-            return $this->getMockPost($data);
-        }
-
         try {
             // Проверяем наличие токена доступа
             if (!$this->authenticate()) {
                 Log::error('GigaChat: Не удалось аутентифицироваться для генерации текста');
-                return $this->getMockPost($data);
+                throw new Exception('Не удалось аутентифицироваться в GigaChat API');
             }
 
-            // Формируем сообщения для API
-            $messages = $this->formatPrompt($prompt);
+            // Формируем сообщения для API с учетом системного сообщения
+            $messages = $this->formatPrompt($prompt, $systemMessage);
 
             // Выполняем запрос к API
             $response = Http::withoutVerifying()
@@ -265,10 +249,9 @@ class GigaChatService
                     'response' => $responseBody,
                 ]);
                 
-                // Возвращаем тестовый пост в случае ошибки
-                return $this->getMockPost($data);
+                throw new Exception('Неожиданный формат ответа от GigaChat API');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Логируем ошибку
             Log::error('GigaChat: Исключение при генерации текста', [
                 'message' => $e->getMessage(),
@@ -276,8 +259,7 @@ class GigaChatService
                 'line' => $e->getLine()
             ]);
             
-            // Возвращаем тестовый пост в случае исключения
-            return $this->getMockPost($data);
+            throw new Exception('Ошибка при генерации текста: ' . $e->getMessage());
         }
     }
 
@@ -286,6 +268,7 @@ class GigaChatService
      *
      * @param array $data Данные для генерации поста
      * @return string Сгенерированный пост
+     * @throws Exception В случае ошибки при генерации поста
      */
     public function generatePost(array $data): string
     {
@@ -296,16 +279,22 @@ class GigaChatService
         try {
             // Проверяем наличие учетных данных
             if (!$this->hasCredentials()) {
-                throw new \Exception('GigaChat: Отсутствуют учетные данные');
+                throw new Exception('GigaChat: Отсутствуют учетные данные');
             }
 
             // Аутентификация
             if (!$this->authenticate()) {
-                throw new \Exception('GigaChat: Ошибка аутентификации');
+                throw new Exception('GigaChat: Ошибка аутентификации');
             }
 
+            // Строим промпт
+            $prompt = $this->buildPrompt($data);
+            
+            // Системное сообщение для обычного поста
+            $systemMessage = "Ты - профессиональный писатель контента для Telegram каналов. Твоя задача - создать интересный, информативный и уникальный пост на русском языке. Пост должен быть структурирован, содержать эмодзи, форматирование и быть адаптированным для аудитории Telegram. ВАЖНО: пиши только по заданной теме, не упоминай себя как ИИ или нейросеть, и избегай фраз вроде \"как нейросетевая модель\" или \"как ИИ\". Фокусируйся на предоставлении ценной информации по теме.";
+            
             // Вызов метода генерации текста
-            $result = $this->generateText($data, $this->buildPrompt($data));
+            $result = $this->generateText($data, $prompt, $systemMessage);
             
             Log::info('GigaChat: Завершение генерации поста', [
                 'success' => true,
@@ -313,15 +302,14 @@ class GigaChatService
             ]);
             
             return $result;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('GigaChat: Ошибка при генерации поста', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
             
-            // В случае ошибки возвращаем тестовый пост
-            return $this->getMockPost($data);
+            throw new Exception('Ошибка при генерации поста: ' . $e->getMessage());
         }
     }
     
@@ -359,15 +347,19 @@ class GigaChatService
      * Форматирует данные в промпт для GigaChat API
      *
      * @param string $prompt Текстовый промпт
+     * @param string|null $systemMessage Системное сообщение для API
      * @return array Форматированный промпт для API
      */
-    private function formatPrompt(string $prompt): array
+    private function formatPrompt(string $prompt, string $systemMessage = null): array
     {
         // Формируем системный промпт
-        $systemPrompt = "Ты - помощник для создания постов в Telegram. Твоя задача - создать интересный, информативный пост. ";
-        $systemPrompt .= "Пост должен быть написан на русском языке, быть грамотным, информативным и подходить для аудитории канала. ";
-        $systemPrompt .= "Используй параграфы и эмодзи для лучшей читаемости. ";
-        $systemPrompt .= "Пиши текст разговорным языком, избегай формальностей и канцеляризмов. ";
+        $systemPrompt = $systemMessage;
+        if (!$systemPrompt) {
+            $systemPrompt = "Ты - помощник для создания постов в Telegram. Твоя задача - создать интересный, информативный пост. ";
+            $systemPrompt .= "Пост должен быть написан на русском языке, быть грамотным, информативным и подходить для аудитории канала. ";
+            $systemPrompt .= "Используй параграфы и эмодзи для лучшей читаемости. ";
+            $systemPrompt .= "Пиши текст разговорным языком, избегай формальностей и канцеляризмов. ";
+        }
         
         // Формируем структуру сообщений для API
         $messages = [
@@ -382,8 +374,8 @@ class GigaChatService
         ];
         
         Log::debug('GigaChat: Сформирован промпт для API', [
-            'system_prompt' => $systemPrompt,
-            'user_prompt_preview' => substr($prompt, 0, 100) . '...'
+            'system_prompt' => substr($systemPrompt, 0, 200) . (strlen($systemPrompt) > 200 ? '...' : ''),
+            'user_prompt_preview' => substr($prompt, 0, 100) . (strlen($prompt) > 100 ? '...' : '')
         ]);
         
         return $messages;
@@ -451,7 +443,7 @@ class GigaChatService
             ]);
             
             return null;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('GigaChat: Исключение при получении списка моделей', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -490,14 +482,22 @@ class GigaChatService
             return $result;
         }
         
-        // Если получить модели не удалось, пробуем очень короткий prompt для быстрого ответа
-        $prompt = "Напиши одно предложение о технологиях.";
-        $result = $this->generateText($prompt);
-        
-        if ($result) {
-            // Кэшируем тестовый ответ на 1 час
-            Cache::put($testKey, $result, now()->addHour());
-            return $result;
+        try {
+            // Если получить модели не удалось, пробуем очень короткий prompt для быстрого ответа
+            $data = [];
+            $prompt = "Напиши одно предложение о технологиях.";
+            $result = $this->generateText($data, $prompt);
+            
+            if ($result) {
+                // Кэшируем тестовый ответ на 1 час
+                Cache::put($testKey, $result, now()->addHour());
+                return $result;
+            }
+        } catch (Exception $e) {
+            Log::error('GigaChat: Ошибка при тестировании соединения', [
+                'message' => $e->getMessage()
+            ]);
+            return null;
         }
         
         return null;
@@ -515,70 +515,5 @@ class GigaChatService
                !empty($this->credential->api_url) && 
                !empty($this->credential->client_id) && 
                !empty($this->credential->client_secret);
-    }
-
-    /**
-     * Возвращает тестовый пост для тестового режима
-     *
-     * @param array $data Данные для генерации поста
-     * @return string Тестовый пост
-     */
-    private function getMockPost(array $data): string
-    {
-        $topic = $data['topic'] ?? 'технологии';
-        $channelName = $data['channel_name'] ?? 'Тестовый канал';
-        
-        $tags = ['#test', '#demo', '#автопост'];
-        
-        $emoji = ['🚀', '🔥', '⚡️', '🌟', '📱', '💻', '📊', '🎯', '🎮', '🧠'];
-        $randomEmoji = $emoji[array_rand($emoji)];
-        
-        $currentDate = now()->format('d.m.Y');
-        
-        $intro = [
-            "Всем привет! $randomEmoji",
-            "Доброго дня подписчики! $randomEmoji",
-            "Интересная новость! $randomEmoji",
-            "Обратите внимание $randomEmoji"
-        ];
-        
-        $body = [
-            "Сегодня поговорим о теме \"$topic\". Это тестовый пост, сгенерированный в режиме разработки.",
-            "В нашем канале \"$channelName\" мы обсуждаем \"$topic\". Это тестовый пост для отладки.",
-            "Тема \"$topic\" очень актуальна для подписчиков \"$channelName\". Это тестовый контент."
-        ];
-        
-        $conclusion = [
-            "Оставайтесь с нами для получения новых публикаций!",
-            "Подписывайтесь и следите за обновлениями!",
-            "Не забудьте поделиться с друзьями!"
-        ];
-        
-        $post = $intro[array_rand($intro)] . "\n\n";
-        $post .= $body[array_rand($body)] . "\n\n";
-        $post .= "Дата: $currentDate\n\n";
-        $post .= $conclusion[array_rand($conclusion)] . "\n\n";
-        $post .= implode(' ', $tags);
-        
-        return $post;
-    }
-
-    /**
-     * Проверяет, включен ли тестовый режим
-     *
-     * @return bool
-     */
-    private function isTestMode(): bool
-    {
-        // Проверяем сначала конфигурацию, затем переменные окружения
-        $testMode = config('services.gigachat.test_mode', false);
-        
-        // Если не задано в конфигурации, проверяем переменную окружения
-        if (!$testMode) {
-            $testMode = env('GIGACHAT_TEST_MODE', false);
-        }
-        
-        // Преобразуем в булево значение (на случай строковых значений)
-        return filter_var($testMode, FILTER_VALIDATE_BOOLEAN);
     }
 } 

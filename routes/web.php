@@ -7,6 +7,7 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPlanController;
+use App\Http\Controllers\GroupAdvertisingController;
 use App\Models\Channel;
 use App\Models\ChannelGroup;
 use App\Models\Post;
@@ -101,6 +102,12 @@ Route::middleware('auth')->group(function () {
     });
     Route::post('channel-groups/{channelGroup}/cross-promotion', [ChannelGroupController::class, 'generateCrossPromotion'])
         ->name('channel-groups.cross-promotion');
+    
+    // Маршруты для рекламной рассылки по группе каналов
+    Route::get('channel-groups/{channelGroup}/advertising', [GroupAdvertisingController::class, 'create'])
+        ->name('channel-groups.advertising.create');
+    Route::post('channel-groups/{channelGroup}/advertising', [GroupAdvertisingController::class, 'store'])
+        ->name('channel-groups.advertising.store');
     
     // Subscription routes
     Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');

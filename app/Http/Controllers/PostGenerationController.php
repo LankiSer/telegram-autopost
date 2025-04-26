@@ -107,6 +107,21 @@ class PostGenerationController extends Controller
             
             $fullPrompt = $combinedPrompt . "\n" . $formattingInstructions;
             
+            // Системное сообщение с четкими инструкциями
+            $systemPrompt = "Ты - профессиональный автор контента для Telegram канала. 
+            
+ВАЖНЫЕ ПРАВИЛА:
+1. НИКОГДА не упоминай себя как ИИ, языковую модель или нейросеть
+2. НИКОГДА не пиши от первого лица о своих возможностях или ограничениях 
+3. Всегда пиши ТОЛЬКО о запрошенной теме, без отступлений
+4. Используй интересные факты и актуальную информацию по теме
+5. Соблюдай все правила форматирования из запроса пользователя
+6. Избегай общих фраз и клише
+7. Адаптируй стиль под Telegram аудиторию
+8. Используй разговорный, но грамотный русский язык
+9. Сделай текст интересным и информативным
+10. Не начинай с фраз типа \"Сегодня поговорим о...\" или \"В этом посте расскажу...\"";
+            
             // Логируем составленный промпт для отладки
             Log::info('Generating post with prompt', [
                 'channel_name' => $channel->name,
@@ -130,13 +145,16 @@ class PostGenerationController extends Controller
                 Log::info('Используется тестовый режим GigaChat');
             }
             
-            // Генерируем текст поста (используем заглушку, если нет учетных данных)
-            $generatedText = $this->gigaChat->generatePost([
+            // Генерируем текст поста
+            $data = [
                 'topic' => $validated['title'] ?? $channelPrompt,
                 'channel_name' => $channel->name,
                 'channel_description' => $channel->description ?? $channelPrompt,
                 'additional_info' => $fullPrompt
-            ]);
+            ];
+            
+            // Генерируем текст поста с системным сообщением
+            $generatedText = $this->gigaChat->generateText($data, $fullPrompt, $systemPrompt);
             
             // Если текст был сгенерирован с помощью заглушки, добавляем информацию в лог
             if ($this->gigaChat && method_exists($this->gigaChat, 'hasCredentials') && !$this->gigaChat->hasCredentials()) {

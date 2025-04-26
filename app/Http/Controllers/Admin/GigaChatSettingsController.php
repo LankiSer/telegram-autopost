@@ -16,11 +16,9 @@ class GigaChatSettingsController extends Controller
     public function index()
     {
         $credential = GigaChatCredential::first();
-        $testMode = env('GIGACHAT_TEST_MODE', false);
         
         return view('admin.gigachat-settings', [
-            'credential' => $credential,
-            'testMode' => $testMode
+            'credential' => $credential
         ]);
     }
     
@@ -33,8 +31,7 @@ class GigaChatSettingsController extends Controller
             'client_id' => 'required|string',
             'client_secret' => 'required|string',
             'auth_url' => 'required|url',
-            'api_url' => 'required|url',
-            'test_mode' => 'boolean'
+            'api_url' => 'required|url'
         ]);
         
         try {
@@ -53,11 +50,9 @@ class GigaChatSettingsController extends Controller
             
             $credential->save();
             
-            // Обновляем .env файл для тестового режима
-            $this->updateTestModeInEnv($request->has('test_mode'));
-            
-            // Очищаем кеш приложения
+            // Очищаем кеш приложения и кеш токенов
             Artisan::call('optimize:clear');
+            $this->clearGigaChatTokenCache();
             
             return redirect()->route('admin.gigachat-settings.index')
                 ->with('success', 'Настройки GigaChat успешно сохранены');
@@ -109,34 +104,23 @@ class GigaChatSettingsController extends Controller
     }
     
     /**
-     * Обновляет параметр GIGACHAT_TEST_MODE в .env файле
+     * Очищает кеш токенов GigaChat
      */
-    private function updateTestModeInEnv($enabled)
+    private function clearGigaChatTokenCache()
     {
         try {
-            $envPath = base_path('.env');
-            $envContent = file_get_contents($envPath);
-            
-            $value = $enabled ? 'true' : 'false';
-            
-            if (strpos($envContent, 'GIGACHAT_TEST_MODE=') !== false) {
-                // Заменяем существующую строку
-                $envContent = preg_replace(
-                    '/GIGACHAT_TEST_MODE=.*/m',
-                    "GIGACHAT_TEST_MODE={$value}",
-                    $envContent
-                );
-            } else {
-                // Добавляем новую строку
-                $envContent .= PHP_EOL . "# Настройка тестового режима для GigaChat" . PHP_EOL;
-                $envContent .= "GIGACHAT_TEST_MODE={$value}" . PHP_EOL;
+            // Очищаем кеш по паттерну
+            $keys = \Illuminate\Support\Facades\Cache::get('gigachat_token_*');
+            foreach ($keys as $key) {
+                \Illuminate\Support\Facades\Cache::forget($key);
             }
             
-            file_put_contents($envPath, $envContent);
+            // Очищаем кеш тестового соединения
+            \Illuminate\Support\Facades\Cache::forget('gigachat_test_connection');
             
             return true;
         } catch (\Exception $e) {
-            Log::error('Ошибка при обновлении .env файла', [
+            Log::error('Ошибка при очистке кеша токенов GigaChat', [
                 'error' => $e->getMessage()
             ]);
             
