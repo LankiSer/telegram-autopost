@@ -29,39 +29,21 @@ Route::get('/check', function() {
 });
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    return redirect()->route('dashboard');
 });
 
 Route::get('/dashboard', function () {
-    $user = auth()->user();
-    
-    // Получаем каналы пользователя
-    $channelIds = $user->channels()->pluck('id')->toArray();
-    
-    // Собираем статистику
-    $stats = [
-        'totalChannels' => $user->channels()->count(),
-        'totalPosts' => Post::whereIn('channel_id', $channelIds)->count(),
-        'totalGroups' => $user->channelGroups()->count(),
-    ];
-    
-    // Получаем последние посты
-    $recentPosts = Post::whereIn('channel_id', $channelIds)
-        ->with('channel')
-        ->orderBy('created_at', 'desc')
-        ->limit(5)
-        ->get();
-    
-    return Inertia::render('Dashboard', [
-        'stats' => $stats,
-        'recentPosts' => $recentPosts
-    ]);
+    return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+// Новые страницы для анализа функционала
+Route::get('/features/missing', function () {
+    return Inertia::render('Features/MissingFeatures');
+})->middleware(['auth'])->name('features.missing');
+
+Route::get('/features/analysis', function () {
+    return Inertia::render('Features/TelegramServiceAnalysis');
+})->middleware(['auth'])->name('features.analysis');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
