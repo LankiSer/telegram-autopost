@@ -1,85 +1,126 @@
 <template>
     <Head title="Создание группы каналов" />
 
-    <AuthenticatedLayout>
+    <AppLayout>
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    {{ __('Создание группы каналов') }}
-                </h2>
+                <div class="flex items-center">
+                    <Link :href="route('groups.index')" class="mr-2 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                    </Link>
+                    <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                        Создание группы каналов
+                    </h2>
+                </div>
             </div>
         </template>
 
-        <div class="py-12">
+        <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 bg-white border-b border-gray-200">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6">
                         <form @submit.prevent="submit">
-                            <!-- Название группы -->
+                            <!-- Group name -->
                             <div class="mb-6">
                                 <InputLabel for="name" value="Название группы" />
                                 <TextInput
                                     id="name"
-                                    v-model="form.name"
                                     type="text"
                                     class="mt-1 block w-full"
+                                    v-model="form.name"
                                     required
                                     autofocus
                                 />
-                                <InputError :message="form.errors.name" class="mt-2" />
+                                <InputError class="mt-2" :message="form.errors.name" />
                             </div>
 
-                            <!-- Описание группы -->
+                            <!-- Group description -->
                             <div class="mb-6">
-                                <InputLabel for="description" value="Описание (необязательно)" />
+                                <InputLabel for="description" value="Описание группы" />
                                 <TextArea
                                     id="description"
-                                    v-model="form.description"
                                     class="mt-1 block w-full"
-                                    rows="3"
+                                    v-model="form.description"
+                                    placeholder="Необязательное описание группы"
+                                    rows="4"
                                 />
-                                <InputError :message="form.errors.description" class="mt-2" />
-                                <p class="mt-1 text-sm text-gray-500">
-                                    Краткое описание для чего предназначена эта группа каналов.
-                                </p>
+                                <InputError class="mt-2" :message="form.errors.description" />
                             </div>
 
-                            <!-- Выбор каналов -->
+                            <!-- Publish settings -->
                             <div class="mb-6">
-                                <InputLabel value="Выберите каналы для группы" />
-                                <p class="mb-3 text-sm text-gray-500">
-                                    Выберите каналы, которые хотите включить в эту группу для кросс-продвижения контента.
-                                </p>
+                                <h3 class="font-medium text-gray-700 dark:text-gray-300 mb-3">Настройки публикации</h3>
                                 
-                                <div v-if="channels && channels.length > 0" class="mt-3 space-y-2">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        <DatasetChannel 
-                                            v-for="channel in channels" 
-                                            :key="channel.id"
-                                            :channel="channel"
-                                            v-model="selectedChannels"
-                                        />
+                                <div class="space-y-4">
+                                    <div class="flex items-start">
+                                        <div class="flex items-center h-5">
+                                            <Checkbox id="auto_publish" v-model:checked="form.auto_publish" />
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <InputLabel for="auto_publish" value="Автоматическая публикация" />
+                                            <p class="text-gray-500 dark:text-gray-400">Посты будут автоматически публиковаться после создания (без модерации)</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start">
+                                        <div class="flex items-center h-5">
+                                            <Checkbox id="use_signature" v-model:checked="form.use_signature" />
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <InputLabel for="use_signature" value="Использовать подпись" />
+                                            <p class="text-gray-500 dark:text-gray-400">Добавлять стандартную подпись к каждому посту</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div v-else class="p-3 bg-yellow-50 text-yellow-800 rounded mt-2">
-                                    <p>У вас еще нет каналов. <Link :href="route('channels.create')" class="text-blue-600 hover:underline">Создать новый канал</Link></p>
-                                </div>
-                                <InputError :message="form.errors.channels" class="mt-2" />
                             </div>
 
-                            <!-- Раздел кнопок -->
+                            <!-- Moderation settings -->
+                            <div class="mb-6">
+                                <h3 class="font-medium text-gray-700 dark:text-gray-300 mb-3">Настройки модерации</h3>
+                                
+                                <div class="space-y-4">
+                                    <div class="flex items-start">
+                                        <div class="flex items-center h-5">
+                                            <Checkbox id="moderation_enabled" v-model:checked="form.moderation_enabled" name="moderation_enabled" />
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <InputLabel for="moderation_enabled" value="Включить модерацию" />
+                                            <p class="text-gray-500 dark:text-gray-400">Каждый пост будет проходить модерацию перед публикацией</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-start" v-if="form.moderation_enabled">
+                                        <div class="flex items-center h-5">
+                                            <Checkbox id="auto_approve" v-model:checked="form.auto_approve" name="auto_approve" />
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <InputLabel for="auto_approve" value="Авто-одобрение" />
+                                            <p class="text-gray-500 dark:text-gray-400">Автоматически одобрять посты, не содержащие запрещенных слов</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div v-if="form.moderation_enabled">
+                                        <InputLabel for="restricted_words" value="Запрещенные слова (через запятую)" />
+                                        <TextInput
+                                            id="restricted_words"
+                                            type="text"
+                                            class="mt-1 block w-full"
+                                            v-model="form.restricted_words"
+                                            placeholder="слово1, слово2, слово3"
+                                        />
+                                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Посты, содержащие эти слова, будут отмечены для модерации</p>
+                                        <InputError class="mt-2" :message="form.errors.restricted_words" />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="flex items-center justify-end mt-6">
-                                <Link 
-                                    :href="route('groups.index')" 
-                                    class="inline-flex items-center px-4 py-2 bg-gray-300 border border-transparent rounded-md font-semibold text-xs text-gray-800 uppercase tracking-widest hover:bg-gray-400 focus:bg-gray-400 active:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150 mr-3"
-                                >
+                                <SecondaryButton as="a" :href="route('groups.index')" class="mr-3">
                                     Отмена
-                                </Link>
-                                <PrimaryButton :disabled="form.processing">
-                                    <svg v-if="form.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                                </SecondaryButton>
+                                <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
                                     Создать группу
                                 </PrimaryButton>
                             </div>
@@ -88,38 +129,35 @@
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>
 
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import InputError from '@/Components/InputError.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import TextArea from '@/Components/TextArea.vue';
-import DatasetChannel from '@/Components/DatasetChannel.vue';
-import { ref, watch } from 'vue';
+import InputError from '@/Components/InputError.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
+import Checkbox from '@/Components/Checkbox.vue';
 
-const props = defineProps({
-    channels: Array
-});
-
-// Создаем форму для группы
 const form = useForm({
     name: '',
     description: '',
-    channels: []
+    auto_publish: false,
+    use_signature: true,
+    moderation_enabled: true,
+    auto_approve: false,
+    restricted_words: '',
 });
 
-// Управление выбранными каналами
-const selectedChannels = ref([]);
-
-// Отправка формы
 const submit = () => {
-    // Синхронизируем selectedChannels с form.channels
-    form.channels = selectedChannels.value;
-    form.post(route('groups.store'));
+    form.post(route('groups.store'), {
+        onSuccess: () => {
+            form.reset();
+        },
+    });
 };
 </script> 

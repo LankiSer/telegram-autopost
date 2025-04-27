@@ -81,42 +81,12 @@ class PostController extends Controller
      */
     public function channelPosts(Channel $channel)
     {
-        try {
-            // Проверка принадлежности канала текущему пользователю
-            if ($channel->user_id !== auth()->id()) {
-                abort(403);
-            }
-            
-            $posts = Post::where('channel_id', $channel->id)
-                ->orderBy('created_at', 'desc')
-                ->paginate(10);
-                
-            // Добавляем заголовки для постов на основе контента
-            $posts->through(function($post) {
-                if (!isset($post->title) || empty($post->title)) {
-                    $sanitizedContent = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', strip_tags($post->content ?? ''));
-                    $post->title = !empty($sanitizedContent) 
-                        ? substr($sanitizedContent, 0, 50) . (strlen($sanitizedContent) > 50 ? '...' : '') 
-                        : 'Без названия';
-                }
-                return $post;
-            });
-            
-            return Inertia::render('Posts/Channel', [
-                'posts' => $posts,
-                'channel' => $channel
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error loading channel posts', [
-                'channel_id' => $channel->id ?? 'unknown',
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return redirect()
-                ->route('channels.index')
-                ->with('error', 'Произошла ошибка при загрузке постов канала.');
-        }
+        $posts = $channel->posts()->orderBy('created_at', 'desc')->paginate(10);
+        
+        return Inertia::render('Posts/ChannelPosts', [
+            'posts' => $posts,
+            'channel' => $channel
+        ]);
     }
 
     public function create()
@@ -598,5 +568,10 @@ class PostController extends Controller
                 'trace' => $e->getTraceAsString()
             ], 500);
         }
+    }
+
+    public function generator()
+    {
+        return Inertia::render('Posts/Generator');
     }
 } 

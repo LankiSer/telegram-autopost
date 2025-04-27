@@ -8,6 +8,8 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPlanController;
 use App\Http\Controllers\GroupAdvertisingController;
+use App\Http\Controllers\GroupModerationController;
+use App\Http\Controllers\ExtendedFeaturesController;
 use App\Models\Channel;
 use App\Models\ChannelGroup;
 use App\Models\Post;
@@ -38,12 +40,20 @@ Route::get('/dashboard', function () {
 
 // Новые страницы для анализа функционала
 Route::get('/features/missing', function () {
-    return Inertia::render('Features/MissingFeatures');
+    return Inertia::render('Features/Missing');
 })->middleware(['auth'])->name('features.missing');
 
 Route::get('/features/analysis', function () {
-    return Inertia::render('Features/TelegramServiceAnalysis');
+    return Inertia::render('Features/Analysis');
 })->middleware(['auth'])->name('features.analysis');
+
+Route::get('/features/generate', function () {
+    return Inertia::render('Features/GeneratePost');
+})->middleware(['auth'])->name('features.generate');
+
+Route::get('/features/multi-post', function () {
+    return Inertia::render('Features/MultiPost');
+})->middleware(['auth'])->name('features.multi-post');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -70,7 +80,12 @@ Route::middleware('auth')->group(function () {
         return '<h1>Posts HTML Page</h1><p>This is a simple HTML page to test routing.</p><p><a href="/posts">Go to Posts Inertia page</a></p>';
     });
     Route::get('channels/{channel}/posts', [PostController::class, 'channelPosts'])->name('posts.channel');
-    Route::post('posts/{post}/publish', [PostController::class, 'publish'])->name('posts.publish');
+    Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
+    Route::get('/posts/{post}/edit', [PostController::class, 'edit'])->name('posts.edit');
+    Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
+    Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('posts.destroy');
+    Route::post('/posts/{post}/publish', [PostController::class, 'publish'])->name('posts.publish');
+    Route::get('/posts/generator', [PostController::class, 'generator'])->name('posts.generator');
     
     // Channel Groups routes
     Route::resource('channel-groups', ChannelGroupController::class);
@@ -108,7 +123,7 @@ Route::middleware('auth')->group(function () {
     });
     
     // Statistics routes
-    Route::get('/statistics', [StatisticsController::class, 'userStats'])->name('statistics');
+    Route::get('/statistics', [StatisticsController::class, 'index'])->name('statistics');
     
     // Scheduler routes
     Route::get('scheduler', [SchedulerController::class, 'index'])->name('scheduler.index');
@@ -137,6 +152,35 @@ Route::middleware('auth')->group(function () {
 
     // Новый маршрут для генерации постов
     Route::post('/posts/generate', [PostGenerationController::class, 'generate'])->name('posts.generate');
+
+    // Расширенный функционал
+    Route::get('/features/missing', [ExtendedFeaturesController::class, 'missingFeatures'])->name('features.missing');
+    Route::get('/features/analysis', [GroupModerationController::class, 'moderationDashboard'])->name('features.analysis');
+    Route::post('/features/generate-post', [ExtendedFeaturesController::class, 'generatePost'])->name('features.generate-post');
+    
+    // Мультипостинг
+    Route::post('/posts/multi', [PostController::class, 'multiPost'])->name('posts.multi');
+    
+    // Модерация групп
+    Route::get('/groups/moderation', [GroupModerationController::class, 'index'])->name('groups.moderation');
+    Route::get('/groups/{group}/settings', [GroupModerationController::class, 'settings'])->name('groups.moderation.settings');
+    Route::post('/groups/{group}/settings', [GroupModerationController::class, 'updateSettings'])->name('groups.moderation.update');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    // Детальная статистика
+    Route::get('/statistics/channel/{channel}', [StatisticsController::class, 'channelDetail'])
+        ->name('statistics.channel.detail');
+    Route::get('/statistics/posts', [StatisticsController::class, 'postAnalytics'])
+        ->name('statistics.posts');
+});
+
+Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+    // Extended Features Routes
+    Route::get('/features/missing', [App\Http\Controllers\ExtendedFeaturesController::class, 'missingFeatures'])->name('features.missing');
+    Route::get('/features/missing/analysis', [App\Http\Controllers\ExtendedFeaturesController::class, 'missingFeaturesAnalysis'])->name('features.missing.analysis');
+    Route::post('/features/multipost', [App\Http\Controllers\ExtendedFeaturesController::class, 'multiPost'])->name('features.multipost.store');
+    Route::post('/features/generate-post', [App\Http\Controllers\ExtendedFeaturesController::class, 'generatePost'])->name('features.generate.post');
 });
 
 require __DIR__.'/auth.php';

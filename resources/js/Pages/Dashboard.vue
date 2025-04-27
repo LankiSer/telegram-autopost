@@ -153,6 +153,40 @@ function getStatusText(status) {
                             </div>
                         </div>
 
+                        <!-- Аналитические инструменты -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
+                            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Аналитика и развитие</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <Link :href="route('features.missing')" class="bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 p-5 rounded-lg border border-indigo-100 dark:border-indigo-800 transition duration-200">
+                                    <div class="flex items-start">
+                                        <div class="p-3 rounded-full bg-indigo-500 dark:bg-indigo-600 text-white mr-4">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Возможности для развития</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300">Ознакомьтесь с функциями, которые могут быть добавлены в будущих обновлениях.</p>
+                                        </div>
+                                    </div>
+                                </Link>
+                                
+                                <Link :href="route('features.analysis')" class="bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 p-5 rounded-lg border border-amber-100 dark:border-amber-800 transition duration-200">
+                                    <div class="flex items-start">
+                                        <div class="p-3 rounded-full bg-amber-500 dark:bg-amber-600 text-white mr-4">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-lg font-semibold text-gray-800 dark:text-white mb-1">Обзор Telegram-сервисов</h4>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300">Сравнительный анализ популярных сервисов для ведения каналов в Telegram.</p>
+                                        </div>
+                                    </div>
+                                </Link>
+                            </div>
+                        </div>
+
                         <div v-if="recentPosts && recentPosts.length > 0" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                             <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Последние посты</h3>
                             <div class="overflow-x-auto">

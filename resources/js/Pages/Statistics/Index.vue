@@ -1,252 +1,239 @@
 <template>
     <Head title="Статистика" />
     
-    <AppLayout>
+    <AppLayout title="Статистика">
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 leading-tight">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     Статистика
                 </h2>
+                <button 
+                    @click="refreshStatistics" 
+                    class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 flex items-center"
+                    :disabled="loading"
+                >
+                    <span v-if="loading">
+                        <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                    <span v-else>
+                        <svg class="h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </span>
+                    {{ loading ? 'Обновление...' : 'Обновить данные' }}
+                </button>
             </div>
         </template>
 
-        <div class="py-6">
+        <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <!-- Основные карточки со статистикой -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Всего каналов</p>
-                                <h3 class="text-3xl font-bold mt-2 text-gray-900 dark:text-white">{{ formatNumber(stats.totalChannels) }}</h3>
-                                <p class="text-sm text-green-500 dark:text-green-400 mt-2" v-if="channelTrend > 0">+{{ channelTrend }}% с прошлого месяца</p>
-                                <p class="text-sm text-red-500 dark:text-red-400 mt-2" v-else-if="channelTrend < 0">{{ channelTrend }}% с прошлого месяца</p>
+                <div v-if="loading" class="flex justify-center items-center py-20">
+                    <div class="loader"></div>
+                    <p class="ml-4 text-gray-600">Загрузка статистики...</p>
                             </div>
-                            <div class="bg-blue-50 dark:bg-blue-900/30 rounded-full p-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                </svg>
-                            </div>
-                        </div>
+
+                <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    <p>{{ error }}</p>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Опубликовано постов</p>
-                                <h3 class="text-3xl font-bold mt-2 text-gray-900 dark:text-white">{{ formatNumber(stats.totalPosts) }}</h3>
-                                <p class="text-sm text-green-500 dark:text-green-400 mt-2" v-if="postTrend > 0">+{{ postTrend }}% с прошлого месяца</p>
-                                <p class="text-sm text-red-500 dark:text-red-400 mt-2" v-else-if="postTrend < 0">{{ postTrend }}% с прошлого месяца</p>
-                            </div>
-                            <div class="bg-green-50 dark:bg-green-900/30 rounded-full p-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                            </div>
-                        </div>
+                <div v-else>
+                    <!-- Last Update Time -->
+                    <div class="mb-4 text-right text-sm text-gray-500">
+                        Последнее обновление: {{ lastUpdateTime ? formatDateTime(lastUpdateTime) : 'Неизвестно' }}
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Подписчиков</p>
-                                <h3 class="text-3xl font-bold mt-2 text-gray-900 dark:text-white">{{ formatNumber(stats.totalSubscribers) }}</h3>
-                                <p class="text-sm text-green-500 dark:text-green-400 mt-2" v-if="subscriberTrend > 0">+{{ subscriberTrend }}% с прошлого месяца</p>
-                                <p class="text-sm text-red-500 dark:text-red-400 mt-2" v-else-if="subscriberTrend < 0">{{ subscriberTrend }}% с прошлого месяца</p>
-                            </div>
-                            <div class="bg-purple-50 dark:bg-purple-900/30 rounded-full p-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    <!-- Summary cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        <!-- Total channels -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                            <div class="p-6 bg-white">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-blue-100 text-blue-500">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                                 </svg>
                             </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-gray-500 truncate">Каналов</p>
+                                        <p class="mt-1 text-3xl font-semibold text-gray-900">{{ statistics.totalChannels }}</p>
                         </div>
                     </div>
-
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-4">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Просмотры</p>
-                                <h3 class="text-3xl font-bold mt-2 text-gray-900 dark:text-white">{{ formatNumber(stats.totalViews) }}</h3>
-                                <p class="text-sm text-green-500 dark:text-green-400 mt-2" v-if="viewTrend > 0">+{{ viewTrend }}% с прошлого месяца</p>
-                                <p class="text-sm text-red-500 dark:text-red-400 mt-2" v-else-if="viewTrend < 0">{{ viewTrend }}% с прошлого месяца</p>
-                            </div>
-                            <div class="bg-amber-50 dark:bg-amber-900/30 rounded-full p-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Табы для переключения между различными типами данных -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                    <div class="flex border-b border-gray-200 dark:border-gray-700">
-                        <button @click="activeTab = 'general'" 
-                                class="px-6 py-3 text-sm font-medium transition-colors"
-                                :class="activeTab === 'general' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
-                            Общее
-                        </button>
-                        <button @click="activeTab = 'posts'" 
-                                class="px-6 py-3 text-sm font-medium transition-colors"
-                                :class="activeTab === 'posts' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
-                            Публикации
-                        </button>
-                        <button @click="activeTab = 'audience'" 
-                                class="px-6 py-3 text-sm font-medium transition-colors"
-                                :class="activeTab === 'audience' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
-                            Аудитория
-                        </button>
-                        <button @click="activeTab = 'engagement'" 
-                                class="px-6 py-3 text-sm font-medium transition-colors"
-                                :class="activeTab === 'engagement' ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'">
-                            Вовлеченность
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Контент главных табов -->
-                <div v-show="activeTab === 'general'">
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Просмотры за последние 30 дней</h3>
-                        
-                        <!-- Используем canvas для графика просмотров -->
-                        <div class="h-64 mt-4">
-                            <canvas ref="viewsChartRef"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Дополнительные графики -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                        <!-- Распределение контента -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Распределение контента</h3>
-                            <div class="h-64">
-                                <canvas ref="contentDistributionRef"></canvas>
                             </div>
                         </div>
                         
-                        <!-- Рост аудитории -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Рост аудитории</h3>
-                            <div class="h-64">
-                                <canvas ref="audienceGrowthRef"></canvas>
+                        <!-- Total posts -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                            <div class="p-6 bg-white">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-indigo-100 text-indigo-500">
+                                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-sm font-medium text-gray-500 truncate">Постов</p>
+                                        <p class="mt-1 text-3xl font-semibold text-gray-900">{{ statistics.totalPosts }}</p>
+                        </div>
+                    </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- Метрики вовлеченности по каналам -->
-                    <div class="mt-6 bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Метрики вовлеченности по каналам</h3>
-                        <div class="h-64">
-                            <canvas ref="engagementMetricsRef"></canvas>
+                        
+                        <!-- Posts by status -->
+                        <div class="col-span-1 md:col-span-2">
+                            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg h-full">
+                                <div class="p-6 bg-white h-full">
+                                    <h3 class="text-lg font-medium text-gray-900 mb-2">Статус постов</h3>
+                                    <div class="flex flex-wrap gap-4">
+                                        <div class="flex items-center bg-green-50 rounded-lg px-4 py-2">
+                                            <div class="rounded-full h-8 w-8 flex items-center justify-center bg-green-500 text-white mr-2">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                </svg>
+                            </div>
+                                            <div>
+                                                <p class="text-sm text-gray-600">Отправлено</p>
+                                                <p class="text-lg font-semibold text-gray-900">{{ statistics.sentPosts }}</p>
                         </div>
                     </div>
                     
-                    <div class="mt-6 bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Недавние публикации</h3>
-                        
-                        <div v-if="stats.recentPosts && stats.recentPosts.length > 0" class="space-y-4">
-                            <div v-for="post in stats.recentPosts" :key="post.id" class="flex items-start justify-between pb-4 border-b border-gray-200 dark:border-gray-700 last:border-0">
+                                        <div class="flex items-center bg-yellow-50 rounded-lg px-4 py-2">
+                                            <div class="rounded-full h-8 w-8 flex items-center justify-center bg-yellow-500 text-white mr-2">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm text-gray-600">Запланировано</p>
+                                                <p class="text-lg font-semibold text-gray-900">{{ statistics.scheduledPosts }}</p>
+                        </div>
+                    </div>
+                    
+                                        <div class="flex items-center bg-red-50 rounded-lg px-4 py-2">
+                                            <div class="rounded-full h-8 w-8 flex items-center justify-center bg-red-500 text-white mr-2">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                            </div>
                                 <div>
-                                    <h4 class="font-medium text-gray-900 dark:text-white">{{ truncateText(post.title || post.content, 50) }}</h4>
-                                    <div class="flex items-center gap-2 mt-1">
-                                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ post.channel ? post.channel.name : 'Канал' }}</span>
-                                        <span class="text-xs text-gray-400 dark:text-gray-500">•</span>
-                                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ post.time || post.published_at }}</span>
+                                                <p class="text-sm text-gray-600">Ошибки</p>
+                                                <p class="text-lg font-semibold text-gray-900">{{ statistics.failedPosts }}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-1 text-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                    <span>{{ formatNumber(post.views || 0) }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                    <!-- Charts section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- Activity by day of week -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                            <div class="p-6 bg-white">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Активность по дням недели</h3>
+                                <div style="height: 300px; max-height: 300px;">
+                                    <canvas ref="weekdayChart"></canvas>
+                        </div>
+                                <div class="mt-4 text-center">
+                                    <Link :href="route('statistics.posts')" class="text-sm text-indigo-600 hover:text-indigo-900">
+                                        Подробный анализ постов →
+                                    </Link>
+                    </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Content type distribution -->
+                        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                            <div class="p-6 bg-white">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Типы контента</h3>
+                                <div style="height: 300px; max-height: 300px;">
+                                    <canvas ref="contentTypeChart"></canvas>
                                 </div>
+                        </div>
+                    </div>
+                </div>
+                
+                    <!-- Top channels -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                        <div class="p-6 bg-white">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Топ каналов по активности</h3>
+                            
+                            <div v-if="statistics.topChannels.length === 0" class="text-center py-8 text-gray-500">
+                                У вас еще нет активных каналов
+                            </div>
+                            
+                            <div v-else class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Канал</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Посты</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Последняя активность</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr v-for="channel in statistics.topChannels" :key="channel.id" class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold">
+                                                        {{ channel.name.charAt(0).toUpperCase() }}
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900">{{ channel.name }}</div>
+                                                        <div class="text-sm text-gray-500">@{{ channel.username }}</div>
                             </div>
                         </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">{{ channel.post_count }} постов</div>
+                                                <div class="text-xs text-gray-500">{{ Math.round(channel.post_count / statistics.totalPosts * 100) || 0 }}% от общего числа</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {{ formatDate(channel.last_activity) }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <Link :href="route('statistics.channel.detail', { channel: channel.id })" class="text-indigo-600 hover:text-indigo-900">
+                                                    Детали
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
 
-                        <div v-else class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 text-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Нет данных</h4>
-                            <p class="text-gray-500 dark:text-gray-400">Здесь будут отображаться ваши последние публикации</p>
-                        </div>
-                    </div>
+                    <!-- Recent activity -->
+                    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 bg-white">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Недавняя активность</h3>
+                            
+                            <div v-if="statistics.recentActivity.length === 0" class="text-center py-8 text-gray-500">
+                                Нет недавней активности
                 </div>
                 
-                <div v-show="activeTab === 'posts'">
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Просмотры постов</h3>
-                        <div class="h-64">
-                            <canvas ref="postsViewsChartRef"></canvas>
+                            <div v-else class="space-y-4">
+                                <div v-for="activity in statistics.recentActivity" :key="activity.id" class="border-l-4 pl-4" :class="getActivityBorderClass(activity.type)">
+                                    <div class="flex items-start">
+                                        <div :class="getActivityIconClass(activity.type)" class="rounded-full p-2 mr-3 mt-1">
+                                            <svg class="h-4 w-4 text-white" :viewBox="getActivityIcon(activity.type).viewBox" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getActivityIcon(activity.type).path"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-700">{{ activity.message }}</p>
+                                            <div class="mt-1 flex items-center text-xs text-gray-500">
+                                                <span>{{ formatDate(activity.created_at) }}</span>
+                                                <span class="mx-2">•</span>
+                                                <span>{{ activity.channel_name }}</span>
                         </div>
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Лучшие посты</h3>
-                            <div class="h-64">
-                                <canvas ref="topPostsChartRef"></canvas>
                             </div>
                         </div>
-                        
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Время публикации</h3>
-                            <div class="h-64">
-                                <canvas ref="postsTimeChartRef"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div v-show="activeTab === 'audience'">
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Рост аудитории</h3>
-                        <div class="h-64">
-                            <canvas ref="audienceGrowthTabRef"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Демография аудитории</h3>
-                            <div class="h-64">
-                                <canvas ref="audienceDemographicsRef"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Активность по времени</h3>
-                            <div class="h-64">
-                                <canvas ref="audienceActivityRef"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div v-show="activeTab === 'engagement'">
-                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Общая вовлеченность</h3>
-                        <div class="h-64">
-                            <canvas ref="engagementTabChartRef"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Комментарии</h3>
-                            <div class="h-64">
-                                <canvas ref="commentsChartRef"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Реакции</h3>
-                            <div class="h-64">
-                                <canvas ref="reactionsChartRef"></canvas>
                             </div>
                         </div>
                     </div>
@@ -257,383 +244,182 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { ref, onMounted, nextTick, onUnmounted } from 'vue';
+import { Link, Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import axios from 'axios';
 import Chart from 'chart.js/auto';
 
-// Определение пропсов
-const props = defineProps({
-    stats: {
-        type: Object,
-        default: () => ({
+const loading = ref(false);
+const error = ref(null);
+const lastUpdateTime = ref(null);
+const statistics = ref({
             totalChannels: 0,
             totalPosts: 0,
-            totalSubscribers: 0,
-            totalViews: 0,
-            recentPosts: [],
-            topChannels: []
-        })
-    }
+    sentPosts: 0,
+    scheduledPosts: 0,
+    failedPosts: 0,
+    weekdayDistribution: {},
+    contentTypeDistribution: {},
+    topChannels: [],
+    recentActivity: []
 });
 
-// Активная вкладка
-const activeTab = ref('general');
+// Chart references
+const weekdayChart = ref(null);
+const contentTypeChart = ref(null);
 
-// Тренды изменений (хардкодные для примера)
-const channelTrend = 12;
-const postTrend = 23;
-const subscriberTrend = 8;
-const viewTrend = 15;
+// Chart instances
+let weekdayChartInstance = null;
+let contentTypeChartInstance = null;
 
-// Refs для графиков
-const viewsChartRef = ref(null);
-const contentDistributionRef = ref(null);
-const audienceGrowthRef = ref(null);
-const engagementMetricsRef = ref(null);
+onMounted(async () => {
+    fetchStatistics(false);
+});
 
-// Дополнительные refs для новых графиков
-const postsViewsChartRef = ref(null);
-const topPostsChartRef = ref(null);
-const postsTimeChartRef = ref(null);
-const audienceGrowthTabRef = ref(null);
-const audienceDemographicsRef = ref(null);
-const audienceActivityRef = ref(null);
-const engagementTabChartRef = ref(null);
-const commentsChartRef = ref(null);
-const reactionsChartRef = ref(null);
+// Cleanup charts when component is unmounted
+onUnmounted(() => {
+    cleanupCharts();
+});
 
-// Расширяем объект для хранения инстансов графиков
-let charts = {
-    views: null,
-    contentDistribution: null,
-    audienceGrowth: null,
-    engagementMetrics: null,
-    postsViews: null,
-    topPosts: null,
-    postsTime: null,
-    audienceGrowthTab: null,
-    audienceDemographics: null,
-    audienceActivity: null,
-    engagementTab: null,
-    comments: null,
-    reactions: null
+const cleanupCharts = () => {
+    if (weekdayChartInstance) {
+        weekdayChartInstance.destroy();
+        weekdayChartInstance = null;
+    }
+    
+    if (contentTypeChartInstance) {
+        contentTypeChartInstance.destroy();
+        contentTypeChartInstance = null;
+    }
 };
 
-// Данные для графиков (хардкодные)
-const viewsData = {
-    labels: ['1 фев', '5 фев', '10 фев', '15 фев', '20 фев', '25 фев', '1 мар', '5 мар', '10 мар', '15 мар', '20 мар', '25 мар', '1 апр'],
-    datasets: [{
-        label: 'Просмотры',
-        data: [1200, 1900, 3000, 3800, 5000, 5800, 7000, 8300, 9000, 10500, 12000, 13800, 15000],
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-    }]
+const refreshStatistics = () => {
+    // First cleanup existing charts
+    cleanupCharts();
+    fetchStatistics(true);
 };
 
-const contentCategories = ['Новости', 'Аналитика', 'Развлечения', 'Образование', 'Технологии'];
-const contentDistributionData = {
-    labels: contentCategories,
-    datasets: [{
-        label: 'Распределение контента',
-        data: [35, 25, 20, 10, 10],
-        backgroundColor: [
-            'rgba(255, 99, 132, 0.7)',
-            'rgba(54, 162, 235, 0.7)',
-            'rgba(255, 206, 86, 0.7)',
-            'rgba(75, 192, 192, 0.7)',
-            'rgba(153, 102, 255, 0.7)'
-        ],
-        borderColor: [
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)',
-            'rgba(75, 192, 192, 1)',
-            'rgba(153, 102, 255, 1)'
-        ],
-        borderWidth: 1
-    }]
+const fetchStatistics = async (forceRefresh = false) => {
+    loading.value = true;
+    error.value = null;
+    
+    try {
+        // Если требуется принудительное обновление, добавляем параметр refresh=true
+        const url = forceRefresh 
+            ? route('statistics', { refresh: true }) 
+            : route('statistics');
+            
+        const response = await axios.get(url);
+        
+        // Установим время последнего обновления
+        lastUpdateTime.value = response.data.last_updated_at || new Date().toISOString();
+        
+        // Transform the data to match our component structure
+        if (response.data) {
+            statistics.value = {
+                totalChannels: response.data.total_channels || 0,
+                totalPosts: response.data.total_posts || 0,
+                sentPosts: response.data.sent_posts || 0,
+                scheduledPosts: response.data.scheduled_posts || 0,
+                failedPosts: response.data.failed_posts || 0,
+                weekdayDistribution: response.data.weekday_distribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 },
+                contentTypeDistribution: response.data.content_type_distribution || {
+                    text_only: 70,
+                    with_image: 20,
+                    with_video: 5,
+                    with_file: 5
+                },
+                topChannels: (response.data.top_channels || []).map(channel => ({
+                    id: channel.id,
+                    name: channel.name || 'Неизвестно',
+                    username: channel.username || channel.telegram_id || 'unknown',
+                    post_count: channel.post_count || 0,
+                    last_activity: channel.last_activity || new Date().toISOString()
+                })),
+                recentActivity: response.data.recent_activity || []
+            };
+        }
+        
+        loading.value = false;
+        
+        // Create charts after data is loaded and DOM is updated
+        nextTick(() => {
+            // First check if chart elements exist in DOM
+            if (weekdayChart.value) {
+                createWeekdayChart();
+            }
+            
+            if (contentTypeChart.value) {
+                createContentTypeChart();
+            }
+        });
+    } catch (err) {
+        console.error('Failed to load statistics:', err);
+        error.value = 'Не удалось загрузить статистику. Пожалуйста, попробуйте позже.';
+        loading.value = false;
+    }
 };
 
-const audienceGrowthData = {
-    labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн'],
-    datasets: [{
-        label: 'Подписчики',
-        data: [5000, 8000, 12000, 18000, 25000, 35000],
-        backgroundColor: 'rgba(16, 185, 129, 0.2)',
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-    }]
+// Format date for display
+const formatDate = (dateString) => {
+    if (!dateString) return 'Нет данных';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('ru-RU', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
 };
 
-const engagementData = {
-    labels: ['Канал 1', 'Канал 2', 'Канал 3', 'Канал 4', 'Канал 5'],
-    datasets: [{
-        label: 'Комментарии',
-        data: [120, 190, 150, 180, 220],
-        backgroundColor: 'rgba(59, 130, 246, 0.7)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 1
-    }, {
-        label: 'Репосты',
-        data: [80, 120, 90, 140, 170],
-        backgroundColor: 'rgba(16, 185, 129, 0.7)',
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 1
-    }, {
-        label: 'Лайки',
-        data: [250, 320, 290, 350, 400],
-        backgroundColor: 'rgba(245, 158, 11, 0.7)',
-        borderColor: 'rgba(245, 158, 11, 1)',
-        borderWidth: 1
-    }]
+const formatDateTime = (dateString) => {
+    if (!dateString) return 'Неизвестно';
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
 };
 
-// Данные для графиков в табе Публикации
-const postsViewsData = {
-    labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-    datasets: [{
-        label: 'Просмотры',
-        data: [4500, 3800, 5200, 6100, 7800, 8900, 6500],
-        backgroundColor: 'rgba(99, 102, 241, 0.4)',
-        borderColor: 'rgba(99, 102, 241, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-    }]
-};
-
-const topPostsData = {
-    labels: ['Пост 1', 'Пост 2', 'Пост 3', 'Пост 4', 'Пост 5'],
-    datasets: [{
-        label: 'Просмотры',
-        data: [8500, 7200, 6800, 5900, 4700],
-        backgroundColor: [
-            'rgba(59, 130, 246, 0.7)',
-            'rgba(16, 185, 129, 0.7)',
-            'rgba(245, 158, 11, 0.7)',
-            'rgba(239, 68, 68, 0.7)',
-            'rgba(139, 92, 246, 0.7)'
-        ],
-        borderWidth: 0
-    }]
-};
-
-const postsTimeData = {
-    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-    datasets: [{
-        label: 'Публикации',
-        type: 'bar',
-        data: [5, 12, 28, 35, 42, 18],
-        backgroundColor: 'rgba(16, 185, 129, 0.6)',
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 1
-    }, {
-        label: 'Просмотры',
-        type: 'line',
-        data: [1200, 3500, 8200, 12000, 14500, 9800],
-        backgroundColor: 'transparent',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        yAxisID: 'y1'
-    }]
-};
-
-// Данные для графиков в табе Аудитория
-const audienceGrowthTabData = {
-    labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг'],
-    datasets: [{
-        label: 'Подписчики',
-        data: [3000, 5000, 8000, 12000, 18000, 25000, 35000, 42000],
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
-        borderColor: 'rgba(139, 92, 246, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-    }, {
-        label: 'Прирост',
-        data: [3000, 2000, 3000, 4000, 6000, 7000, 10000, 7000],
-        backgroundColor: 'rgba(244, 114, 182, 0.2)',
-        borderColor: 'rgba(244, 114, 182, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-    }]
-};
-
-const audienceDemographicsData = {
-    labels: ['18-24', '25-34', '35-44', '45-54', '55+'],
-    datasets: [{
-        label: 'Возрастные группы',
-        data: [25, 40, 20, 10, 5],
-        backgroundColor: [
-            'rgba(59, 130, 246, 0.7)',
-            'rgba(16, 185, 129, 0.7)',
-            'rgba(245, 158, 11, 0.7)',
-            'rgba(239, 68, 68, 0.7)',
-            'rgba(139, 92, 246, 0.7)'
-        ],
-        borderWidth: 1
-    }]
-};
-
-const audienceActivityData = {
-    labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'],
-    datasets: [{
-        label: 'Активность',
-        data: [15, 8, 5, 30, 45, 40, 60, 35],
-        backgroundColor: 'rgba(14, 165, 233, 0.5)',
-        borderColor: 'rgba(14, 165, 233, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-    }]
-};
-
-// Данные для графиков в табе Вовлеченность
-const engagementTabData = {
-    labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн'],
-    datasets: [{
-        label: 'Просмотры',
-        data: [12000, 18000, 24000, 32000, 38000, 45000],
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false
-    }, {
-        label: 'Комментарии',
-        data: [800, 1200, 1600, 2200, 2800, 3500],
-        backgroundColor: 'rgba(16, 185, 129, 0.5)',
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false
-    }, {
-        label: 'Реакции',
-        data: [2500, 3800, 5200, 7000, 8500, 10200],
-        backgroundColor: 'rgba(245, 158, 11, 0.5)',
-        borderColor: 'rgba(245, 158, 11, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: false
-    }]
-};
-
-const commentsData = {
-    labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-    datasets: [{
-        label: 'Комментарии',
-        data: [120, 180, 250, 310, 380, 420, 350],
-        backgroundColor: 'rgba(16, 185, 129, 0.6)',
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 2
-    }]
-};
-
-const reactionsData = {
-    labels: ['Лайки', 'Дизлайки', 'Сердечки', 'Смех', 'Удивление'],
-    datasets: [{
-        label: 'Реакции',
-        data: [65, 10, 15, 7, 3],
-        backgroundColor: [
-            'rgba(59, 130, 246, 0.7)',
-            'rgba(239, 68, 68, 0.7)',
-            'rgba(244, 114, 182, 0.7)',
-            'rgba(245, 158, 11, 0.7)',
-            'rgba(16, 185, 129, 0.7)'
-        ],
-        borderWidth: 1
-    }]
-};
-
-// Функция для форматирования числа (добавление разделителей тысяч)
-const formatNumber = (num) => {
-    return num ? num.toLocaleString('ru-RU') : '0';
-};
-
-// Функция для усечения длинного текста
-const truncateText = (text, length) => {
-    if (!text) return '';
-    return text.length > length ? text.substring(0, length) + '...' : text;
-};
-
-// Инициализация графиков
-const initCharts = () => {
-    // Уничтожаем предыдущие экземпляры, если они существуют
-    Object.values(charts).forEach(chart => {
-        if (chart) chart.destroy();
+// Create weekday distribution chart
+const createWeekdayChart = () => {
+    if (!weekdayChart.value) return;
+    
+    const ctx = weekdayChart.value.getContext('2d');
+    
+    // Cleanup old instance if exists
+    if (weekdayChartInstance) {
+        weekdayChartInstance.destroy();
+    }
+    
+    // Prepare data for weekday chart
+    const weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+    const weekdayData = weekdays.map((_, index) => {
+        // Converting from JS 0-indexed (Sunday = 0) to 1-indexed (Monday = 1)
+        const dayNum = index + 1;
+        return statistics.value.weekdayDistribution[dayNum] || 0;
     });
     
-    // График просмотров
-    if (viewsChartRef.value) {
-        charts.views = new Chart(viewsChartRef.value, {
-            type: 'line',
-            data: viewsData,
+    weekdayChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: weekdays,
+            datasets: [{
+                label: 'Количество постов',
+                data: weekdayData,
+                backgroundColor: 'rgba(79, 70, 229, 0.5)',
+                borderColor: 'rgba(79, 70, 229, 1)',
+                borderWidth: 1
+            }]
+        },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
-    // Распределение контента (пирог)
-    if (contentDistributionRef.value) {
-        charts.contentDistribution = new Chart(contentDistributionRef.value, {
-            type: 'pie',
-            data: contentDistributionData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right'
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.label}: ${context.parsed}%`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
-    // Рост аудитории
-    if (audienceGrowthRef.value) {
-        charts.audienceGrowth = new Chart(audienceGrowthRef.value, {
-            type: 'line',
-            data: audienceGrowthData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            maintainAspectRatio: true,
                 plugins: {
                     legend: {
                         display: false
@@ -643,260 +429,151 @@ const initCharts = () => {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
+                        precision: 0
+                    }
                     }
                 }
             }
         });
+};
+
+// Create content type distribution chart
+const createContentTypeChart = () => {
+    if (!contentTypeChart.value) return;
+    
+    const ctx = contentTypeChart.value.getContext('2d');
+    const distributionData = statistics.value.contentTypeDistribution;
+    
+    // Cleanup old instance if exists
+    if (contentTypeChartInstance) {
+        contentTypeChartInstance.destroy();
     }
     
-    // Метрики вовлеченности
-    if (engagementMetricsRef.value) {
-        charts.engagementMetrics = new Chart(engagementMetricsRef.value, {
-            type: 'bar',
-            data: engagementData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top'
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
+    contentTypeChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(distributionData).map(key => {
+                switch(key) {
+                    case 'text_only': return 'Только текст';
+                    case 'with_image': return 'С изображениями';
+                    case 'with_video': return 'С видео';
+                    case 'with_file': return 'С файлами';
+                    default: return key;
                 }
-            }
-        });
-    }
-
-    // Инициализация графиков для таба "Публикации"
-    if (postsViewsChartRef.value) {
-        charts.postsViews = new Chart(postsViewsChartRef.value, {
-            type: 'line',
-            data: postsViewsData,
+            }),
+            datasets: [{
+                data: Object.values(distributionData),
+                backgroundColor: [
+                    'rgba(54, 162, 235, 0.7)',
+                    'rgba(255, 99, 132, 0.7)',
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(75, 192, 192, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(75, 192, 192, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    if (topPostsChartRef.value) {
-        charts.topPosts = new Chart(topPostsChartRef.value, {
-            type: 'bar',
-            data: topPostsData,
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    if (postsTimeChartRef.value) {
-        charts.postsTime = new Chart(postsTimeChartRef.value, {
-            type: 'bar',
-            data: postsTimeData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Публикации'
-                        }
-                    },
-                    y1: {
-                        position: 'right',
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Просмотры'
-                        },
-                        grid: {
-                            drawOnChartArea: false
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // Инициализация графиков для таба "Аудитория"
-    if (audienceGrowthTabRef.value) {
-        charts.audienceGrowthTab = new Chart(audienceGrowthTabRef.value, {
-            type: 'line',
-            data: audienceGrowthTabData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    if (audienceDemographicsRef.value) {
-        charts.audienceDemographics = new Chart(audienceDemographicsRef.value, {
-            type: 'doughnut',
-            data: audienceDemographicsData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            maintainAspectRatio: true,
                 plugins: {
                     legend: {
                         position: 'right'
                     },
                     tooltip: {
                         callbacks: {
-                            label: function(context) {
-                                return `${context.label}: ${context.parsed}%`;
-                            }
+                        label: (context) => {
+                            const label = context.label || '';
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: ${value} (${percentage}%)`;
                         }
                     }
-                }
-            }
-        });
-    }
-
-    if (audienceActivityRef.value) {
-        charts.audienceActivity = new Chart(audienceActivityRef.value, {
-            type: 'line',
-            data: audienceActivityData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
                     }
                 }
             }
         });
-    }
+};
 
-    // Инициализация графиков для таба "Вовлеченность"
-    if (engagementTabChartRef.value) {
-        charts.engagementTab = new Chart(engagementTabChartRef.value, {
-            type: 'line',
-            data: engagementTabData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatNumber(value);
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    if (commentsChartRef.value) {
-        charts.comments = new Chart(commentsChartRef.value, {
-            type: 'bar',
-            data: commentsData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-    }
-
-    if (reactionsChartRef.value) {
-        charts.reactions = new Chart(reactionsChartRef.value, {
-            type: 'pie',
-            data: reactionsData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right'
-                    }
-                }
-            }
-        });
+// Get activity border class based on activity type
+const getActivityBorderClass = (type) => {
+    switch (type) {
+        case 'post_sent': return 'border-green-500';
+        case 'post_scheduled': return 'border-yellow-500';
+        case 'post_failed': return 'border-red-500';
+        case 'channel_created': return 'border-blue-500';
+        case 'channel_updated': return 'border-purple-500';
+        default: return 'border-gray-500';
     }
 };
 
-// Хук жизненного цикла
-onMounted(() => {
-    // Небольшая задержка для гарантированной загрузки DOM
-    setTimeout(() => {
-        initCharts();
-    }, 200);
-});
+// Get activity icon class based on activity type
+const getActivityIconClass = (type) => {
+    switch (type) {
+        case 'post_sent': return 'bg-green-500';
+        case 'post_scheduled': return 'bg-yellow-500';
+        case 'post_failed': return 'bg-red-500';
+        case 'channel_created': return 'bg-blue-500';
+        case 'channel_updated': return 'bg-purple-500';
+        default: return 'bg-gray-500';
+    }
+};
+
+// Get activity icon based on activity type
+const getActivityIcon = (type) => {
+    switch (type) {
+        case 'post_sent':
+            return {
+                viewBox: '0 0 24 24',
+                path: 'M5 13l4 4L19 7'
+            };
+        case 'post_scheduled':
+            return {
+                viewBox: '0 0 24 24',
+                path: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+            };
+        case 'post_failed':
+            return {
+                viewBox: '0 0 24 24',
+                path: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+            };
+        case 'channel_created':
+            return {
+                viewBox: '0 0 24 24',
+                path: 'M12 4v16m8-8H4'
+            };
+        case 'channel_updated':
+            return {
+                viewBox: '0 0 24 24',
+                path: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z'
+            };
+        default:
+            return {
+                viewBox: '0 0 24 24',
+                path: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+            };
+    }
+};
 </script> 
+
+<style scoped>
+.loader {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top: 4px solid #3498db;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style> 

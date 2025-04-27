@@ -1,18 +1,23 @@
+<script setup>
+import AppLayout from '@/Layouts/AppLayout.vue';
+import { Head, Link } from '@inertiajs/vue3';
+</script>
+
 <template>
   <Head title="Модерация групповых чатов" />
 
-  <AuthenticatedLayout>
+  <AppLayout>
     <template #header>
-      <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+      <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
         Модерация и управление группами в Telegram
       </h2>
     </template>
 
-    <div class="py-12">
+    <div class="py-6">
       <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
         <!-- Панель модерации -->
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-          <div class="p-6 text-gray-900">
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
+          <div class="p-6 text-gray-900 dark:text-gray-100">
             <div class="flex justify-between items-center mb-6">
               <h3 class="text-lg font-semibold">Панель модерации групп</h3>
               <div class="flex space-x-2">
@@ -20,7 +25,7 @@
                   <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                   Добавить группу
                 </button>
-                <button class="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-200 text-sm">
+                <button class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
                   <svg class="h-4 w-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
                   Фильтр
                 </button>
@@ -28,107 +33,107 @@
             </div>
             
             <div class="overflow-x-auto mb-6">
-              <table class="min-w-full divide-y divide-gray-200 border">
-                <thead class="bg-gray-50">
+              <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border dark:border-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Группа</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Участники</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Активность</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Группа</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Участники</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Активность</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Статус</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Действия</th>
                   </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   <tr>
                     <td class="px-4 py-3 whitespace-nowrap">
                       <div class="flex items-center">
-                        <div class="h-10 w-10 flex-shrink-0 bg-purple-100 rounded-full flex items-center justify-center">
-                          <span class="text-purple-600 font-semibold">ПТ</span>
+                        <div class="h-10 w-10 flex-shrink-0 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+                          <span class="text-purple-600 dark:text-purple-400 font-semibold">ПТ</span>
                         </div>
                         <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">Поддержка Телеграм</div>
-                          <div class="text-sm text-gray-500">@telegram_support_chat</div>
+                          <div class="text-sm font-medium text-gray-900 dark:text-white">Поддержка Телеграм</div>
+                          <div class="text-sm text-gray-500 dark:text-gray-400">@telegram_support_chat</div>
                         </div>
                       </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">5,230</div>
-                      <div class="text-sm text-gray-500">+23 за день</div>
+                      <div class="text-sm text-gray-900 dark:text-white">5,230</div>
+                      <div class="text-sm text-gray-500 dark:text-gray-400">+23 за день</div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">Высокая</div>
-                      <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-green-500 h-2 rounded-full" style="width: 80%"></div>
+                      <div class="text-sm text-gray-900 dark:text-white">Высокая</div>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div class="bg-green-500 dark:bg-green-600 h-2 rounded-full" style="width: 80%"></div>
                       </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Активная</span>
+                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">Активная</span>
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 space-x-2">
-                      <button class="text-blue-600 hover:text-blue-800">Настроить</button>
-                      <button class="text-gray-600 hover:text-gray-800">Статистика</button>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 space-x-2">
+                      <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">Настроить</button>
+                      <button class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300">Статистика</button>
                     </td>
                   </tr>
                   
                   <tr>
                     <td class="px-4 py-3 whitespace-nowrap">
                       <div class="flex items-center">
-                        <div class="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span class="text-blue-600 font-semibold">НП</span>
+                        <div class="h-10 w-10 flex-shrink-0 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                          <span class="text-blue-600 dark:text-blue-400 font-semibold">НП</span>
                         </div>
                         <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">Новости проекта</div>
-                          <div class="text-sm text-gray-500">@project_news_chat</div>
+                          <div class="text-sm font-medium text-gray-900 dark:text-white">Новости проекта</div>
+                          <div class="text-sm text-gray-500 dark:text-gray-400">@project_news_chat</div>
                         </div>
                       </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">3,114</div>
-                      <div class="text-sm text-gray-500">+5 за день</div>
+                      <div class="text-sm text-gray-900 dark:text-white">3,114</div>
+                      <div class="text-sm text-gray-500 dark:text-gray-400">+5 за день</div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">Средняя</div>
-                      <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-yellow-500 h-2 rounded-full" style="width: 50%"></div>
+                      <div class="text-sm text-gray-900 dark:text-white">Средняя</div>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div class="bg-yellow-500 dark:bg-yellow-600 h-2 rounded-full" style="width: 50%"></div>
                       </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Активная</span>
+                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">Активная</span>
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 space-x-2">
-                      <button class="text-blue-600 hover:text-blue-800">Настроить</button>
-                      <button class="text-gray-600 hover:text-gray-800">Статистика</button>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 space-x-2">
+                      <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">Настроить</button>
+                      <button class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300">Статистика</button>
                     </td>
                   </tr>
                   
                   <tr>
                     <td class="px-4 py-3 whitespace-nowrap">
                       <div class="flex items-center">
-                        <div class="h-10 w-10 flex-shrink-0 bg-red-100 rounded-full flex items-center justify-center">
-                          <span class="text-red-600 font-semibold">ОС</span>
+                        <div class="h-10 w-10 flex-shrink-0 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                          <span class="text-red-600 dark:text-red-400 font-semibold">ОС</span>
                         </div>
                         <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">Обратная связь</div>
-                          <div class="text-sm text-gray-500">@feedback_group</div>
+                          <div class="text-sm font-medium text-gray-900 dark:text-white">Обратная связь</div>
+                          <div class="text-sm text-gray-500 dark:text-gray-400">@feedback_group</div>
                         </div>
                       </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">847</div>
-                      <div class="text-sm text-gray-500">+0 за день</div>
+                      <div class="text-sm text-gray-900 dark:text-white">847</div>
+                      <div class="text-sm text-gray-500 dark:text-gray-400">+0 за день</div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">Низкая</div>
-                      <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-red-500 h-2 rounded-full" style="width: 20%"></div>
+                      <div class="text-sm text-gray-900 dark:text-white">Низкая</div>
+                      <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div class="bg-red-500 dark:bg-red-600 h-2 rounded-full" style="width: 20%"></div>
                       </div>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Модерируемая</span>
+                      <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300">Модерируемая</span>
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 space-x-2">
-                      <button class="text-blue-600 hover:text-blue-800">Настроить</button>
-                      <button class="text-gray-600 hover:text-gray-800">Статистика</button>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 space-x-2">
+                      <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">Настроить</button>
+                      <button class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300">Статистика</button>
                     </td>
                   </tr>
                 </tbody>
@@ -138,7 +143,7 @@
         </div>
         
         <!-- Настройки модерации -->
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
           <div class="p-6 text-gray-900">
             <h3 class="text-lg font-semibold mb-6">Настройки модерации для группы "Поддержка Телеграм"</h3>
             
@@ -266,7 +271,7 @@
         </div>
         
         <!-- Статистика модерации -->
-        <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
           <div class="p-6 text-gray-900">
             <h3 class="text-lg font-semibold mb-4">Статистика модерации</h3>
             
@@ -344,10 +349,5 @@
         </div>
       </div>
     </div>
-  </AuthenticatedLayout>
-</template>
-
-<script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
-</script> 
+  </AppLayout>
+</template> 

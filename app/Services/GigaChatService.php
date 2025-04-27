@@ -84,8 +84,8 @@ class GigaChatService
             // Логируем детали запроса для отладки
             Log::debug('GigaChat: Детали запроса авторизации', [
                 'auth_url' => $this->credential->auth_url,
-                'headers' => [
-                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'headers' => [
+                        'Content-Type' => 'application/x-www-form-urlencoded',
                     'Accept' => 'application/json',
                     'Authorization' => 'Basic ' . substr($this->credential->client_secret, 0, 10) . '...',
                 ],
@@ -124,7 +124,7 @@ class GigaChatService
             }
 
             Log::error('GigaChat: Ошибка аутентификации', [
-                'status' => $response->status(),
+                    'status' => $response->status(),
                 'body' => $response->body(),
             ]);
             
@@ -363,14 +363,14 @@ class GigaChatService
         
         // Формируем структуру сообщений для API
         $messages = [
-            [
-                'role' => 'system',
+                    [
+                        'role' => 'system',
                 'content' => $systemPrompt
-            ],
-            [
-                'role' => 'user',
-                'content' => $prompt
-            ]
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ]
         ];
         
         Log::debug('GigaChat: Сформирован промпт для API', [

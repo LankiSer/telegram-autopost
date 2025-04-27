@@ -35,7 +35,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div v-if="errorMessage" class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
                             <div class="flex">
                                 <div class="flex-shrink-0">
