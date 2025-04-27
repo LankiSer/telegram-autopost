@@ -183,15 +183,15 @@ class ChannelGroupController extends Controller
         }
         
         try {
-            // Get all channels in the group
-            $channels = $channelGroup->channels;
+        // Get all channels in the group
+        $channels = $channelGroup->channels;
             
             // Get GigaChatService
             $gigaChatService = app(\App\Services\GigaChatService::class);
-            
-            // Track created posts
-            $createdPosts = 0;
-            
+        
+        // Track created posts
+        $createdPosts = 0;
+        
             // If we have N channels, create a circular promotion pattern where
             // channel 1 promotes channel 2, channel 2 promotes channel 3, etc.,
             // and the last channel promotes channel 1
@@ -242,9 +242,9 @@ class ChannelGroupController extends Controller
                 } catch (\Exception $e) {
                     // Fallback if GigaChat fails
                     $content = "🔥 Рекомендуем подписаться на канал {$promotedChannel->name}!\n\n";
-                    if ($promotedChannel->description) {
+                if ($promotedChannel->description) {
                         $content .= "О канале: {$promotedChannel->description}\n\n";
-                    }
+                }
                 }
                 
                 // Create the post
@@ -365,8 +365,8 @@ class ChannelGroupController extends Controller
                 
                 $createdPosts++;
             }
-            
-            return redirect()->route('channel-groups.show', $channelGroup)
+        
+        return redirect()->route('channel-groups.show', $channelGroup)
                 ->with('success', "Успешно создано и опубликовано $createdPosts кросс-промо постов!");
         } catch (\Exception $e) {
             return redirect()->route('channel-groups.show', $channelGroup)
