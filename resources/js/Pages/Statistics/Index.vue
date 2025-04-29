@@ -151,7 +151,7 @@
                                 <h3 class="text-lg font-medium text-gray-900 mb-4">Типы контента</h3>
                                 <div style="height: 300px; max-height: 300px;">
                                     <canvas ref="contentTypeChart"></canvas>
-                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -163,8 +163,8 @@
                             
                             <div v-if="statistics.topChannels.length === 0" class="text-center py-8 text-gray-500">
                                 У вас еще нет активных каналов
-                            </div>
-                            
+                    </div>
+                    
                             <div v-else class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
@@ -430,7 +430,7 @@ const createWeekdayChart = () => {
                         beginAtZero: true,
                         ticks: {
                         precision: 0
-                    }
+                        }
                     }
                 }
             }
